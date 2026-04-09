@@ -1,0 +1,731 @@
+---
+title: "CMIP6"
+format: revealjs
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.align = "center",
+  fig.height = 8,
+  fig.width = 12,
+  message = FALSE,
+  warning = FALSE,
+  cache = FALSE,
+  cache.extra = 43
+)
+library(metR)
+library(lubridate)
+library(data.table)
+library(ggplot2)
+library(rcdo)
+library(future)
+library(scales)
+
+plan(multicore, workers = parallelly::availableCores(omit = 1))
+cdo_cache_set(here::here("data/cache/ice-growth"))
+cdo_options_set("-L")
+source(here::here("R/datasets.R"))
+source(here::here("R/ggplot.R"))
+
+interactivity <- function() {
+  structure(list(), class = "gg_interactive")
+}
+
+ggplot_add.gg_interactive <- function(object, plot, ...) {
+  plotly::ggplotly(plot)
+}
+
+```
+
+```{r}
+
+CDR_ant <- here::here("data/raw/cdr_full.nc")
+
+```
+
+
+```{r}
+ant_ice <- CDR() |>
+  cdo_monmean() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("aice") |>
+  setnames(c("xgrid", "ygrid"), c("x", "y")) |>
+  _[, daice := c(diff(aice), NA), by = .(x, y)]
+
+temp_era_mon <- ERA5_t2m() |>
+  cdo_monmean() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("t2m") |>
+  setnames(c("xgrid", "ygrid"), c("x", "y"))
+
+daice <- ant_ice |>
+  _[year(time) > 1983] |>
+  _[temp_era_mon[year(time) >= 1983], on = .NATURAL] |>
+  _[year(time) < 2024] |>
+  _[, t2m := t2m - 273.15] |>
+  identity()
+```
+
+```{r}
+cut_mid <- \(x, width, center) {
+  breaks <- AnchorBreaks(center + width / 2, binwidth = width)(range(x))
+
+  santoku::chop(x, breaks, labels = santoku::lbl_midpoints()) |>
+    as.character() |>
+    as.numeric()
+}
+```
+
+```{r}
+
+grid_monthly <- daice |>
+  _[year(time) > 1983] |>
+  _[!is.na(daice)] |>
+  _[,
+    .(daice = mean(daice), n = sum(!is.na(daice))),
+    by = .(
+      t2m = cut_mid(t2m, 0.5, 0),
+      aice = cut_mid(aice, 0.05, 0)
+    )
+  ]
+```
+
+---
+
+```{r}
+grid_monthly |>
+  _[n > 10] |>
+  ggplot(aes(aice, t2m)) +
+  # scale_color_manual(
+  #   NULL,
+  #   values = c(Growth = "blue", Melt = "red"),
+  #   guide = "none"
+  # ) +
+  geom_contour_fill(
+    breaks = AnchorBreaks(0),
+    aes(z = daice, fill = ..level..)
+  ) +
+  geom_contour_tanaka(
+    breaks = AnchorBreaks(0),
+    aes(z = daice)
+  ) +
+  geom_contour2(
+    breaks = 0,
+    aes(z = daice),
+  ) +
+  # geom_contour_fill(
+  #   aes(z = n, fill = NULL),
+  #   breaks = c(0, 100),
+  #   fill = "gray",
+  #   color = "gray30",
+  #   alpha = 0.5
+  # ) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-20, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend
+```
+
+---
+
+```{r}
+get_model <- function(x) {
+  dir_part(x, 7)
+}
+
+get_experiment <- function(x) {
+  dir_part(x, 6)
+}
+
+cmip_augment <- function(files) {
+  data.table(
+    file = files,
+    model = get_model(files),
+    experiment = get_experiment(files),
+    variable = dir_part(files, 3),
+    member = dir_part(files, 5)
+  )
+}
+
+
+cmip_get <- function(variable, experiment, member = "r1i1p1f1", model = "*") {
+  CJ(variable = variable, experiment = experiment) |>
+    glue::glue_data(
+      "/g/data/oi10/replicas/CMIP6/*/*/{model}/{experiment}/{member}/*mon/{variable}/gn/*/*"
+    ) |>
+    Sys.glob() |>
+    cmip_augment() |>
+    _[]
+}
+
+```
+
+```{r}
+cmip_selantmerge <- function(files) {
+  lapply(files, \(x) {
+    x |>
+      cdo_remapnn("r360x180") |>
+      cdo_sellonlatbox(0, 360, -90, -50)
+  }) |>
+    cdo_mergetime() |>
+    cdo_execute(options = "-L -O")
+}
+```
+
+```{r}
+cmip_complete <- function(data) {
+  incomplete <- data |>
+    tidyr::complete(model, experiment, member, variable) |>
+    as.data.table() |>
+    _[is.na(file)] |>
+    _[, unique(model)]
+
+  data[!(model %in% incomplete)]
+}
+```
+
+```{r}
+options(rcdo_silent = FALSE)
+old <- cdo_cache_set(here::here("data/cache/cmip6"))
+cmip_files <- cmip_get(
+  variable = c("tas", "siconc"),
+  experiment = c("historical", "ssp585")
+) |>
+  cmip_complete() |>
+  _[,
+    .(file = list(future(cmip_selantmerge(file)))),
+    by = .(experiment, model, variable)
+  ] |>
+  _[, file := unlist(value(file))] |>
+  _[]
+cdo_cache_set(old)
+options(rcdo_silent = FALSE)
+```
+
+
+
+```{r}
+
+grid_ice <- (function(aice, tas, time = c(NA, NA)) {
+  subset <- list(time = time)
+
+  aice <- aice |>
+    cdo_divc(100) |>
+    cdo_execute() |>
+    ReadNetCDF(c(aice = "siconc"), subset = subset) |>
+    na.omit() |>
+    _[, daice := c(diff(aice), NA), by = .(lon, lat)]
+
+  tas <- ReadNetCDF(tas, c(t2m = "tas"), subset = subset) |>
+    _[, t2m := t2m - 273.15]
+
+  tas[aice, on = .NATURAL] |>
+    _[,
+      .(daice = mean(daice, na.rm = TRUE), n = sum(!is.na(daice))),
+      by = .(t2m = cut_mid(t2m, 0.5, 0), aice = cut_mid(aice, 0.05, 0))
+    ]
+}) |>
+  memoise::memoise(cache = cachem::cache_disk(here::here("data/cache/memoise")))
+
+```
+
+
+```{r}
+cmip_grid <- cmip_files |>
+  _[model != "CanESM5"] |>
+  dcast(experiment + model ~ variable, value.var = "file") |>
+  na.omit() |>
+  _[,
+    grid_ice(siconc, tas, time = c("1983-01-01", NA)),
+    by = .(experiment, model)
+  ]
+
+cmip_grid2 <- cmip_files |>
+  _[model != "CanESM5"] |>
+  dcast(experiment + model ~ variable, value.var = "file") |>
+  na.omit() |>
+  _[experiment == "historical"] |>
+  _[, experiment := "historical_old"] |>
+  _[,
+    grid_ice(siconc, tas, time = c(NA, "1983-01-01")),
+    by = .(experiment, model)
+  ]
+
+cmip_grid <- rbind(cmip_grid, cmip_grid2)
+```
+
+
+```{r}
+# errors <- cmip_grid[grid_monthly, on = c("t2m", "aice")] |>
+#   _[n > 10] |>
+#   _[,
+#     .(
+#       w_error = weighted.mean((daice - i.daice)^2, n),
+#       error = mean((daice - i.daice)^2)
+#     ),
+#     by = model
+#   ]
+
+# add_errors <- function(x) {
+#   x[errors, on = "model"] |>
+#     _[, model := reorder(model, -error)] |>
+#     _[]
+# }
+
+```
+
+
+```{r}
+
+cmip_grid |>
+  _[experiment == "historical_old"] |>
+  # _[model %in% unique(model)[1:9]] |>
+  _[n > 10] |>
+  ggplot(aes(aice, t2m)) +
+  scale_color_manual(
+    NULL,
+    values = c(Growth = "blue", Melt = "red"),
+    guide = "none"
+  ) +
+  geom_contour_fill(
+    breaks = AnchorBreaks(0, binwidth = 0.1)(c(-1, 1)),
+    aes(z = daice, fill = ..level..)
+  ) +
+  geom_contour_tanaka(
+    breaks = AnchorBreaks(0, binwidth = 0.1)(c(-1, 1)),
+    aes(z = daice)
+  ) +
+  geom_contour2(
+    breaks = 0,
+    aes(z = daice),
+  ) +
+  geom_contour2(
+    data = grid_monthly[n > 10],
+    breaks = 0,
+    colour = muted("violet"),
+    label = "obs",
+    label.placer = label_placer_fraction(0.5),
+    aes(z = daice),
+  ) +
+  #   geom_contour_fill(
+  #     aes(z = n, fill = NULL),
+  #     breaks = c(0, 100),
+  #     fill = "gray",
+  #     color = "gray30",
+  #     alpha = 0.5
+  #   ) +
+  #   geomtextpath::geom_texthline(
+  #     halign = "left",
+  #     data = data.frame(y = c(-10, -0.5), state = c("Growth", "Melt")),
+  #     aes(yintercept = y, label = state, color = state)
+  #   ) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-20, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend +
+  facet_wrap(~model, ncol = 4) +
+  labs(title = "Historical (1850 -- 1983)")
+```
+
+----
+
+```{r}
+last_plot() %+%
+  (cmip_grid |>
+    _[experiment == "historical"] |>
+    _[n > 10]) +
+  labs(title = "Historical (1983 -- 2014)")
+```
+
+----
+
+```{r}
+last_plot() %+%
+  (cmip_grid |>
+    _[experiment == "ssp585"] |>
+    _[n > 10]) +
+  labs(title = "ssp585")
+```
+
+---
+
+
+```{r}
+ice_rmse <- merge(
+  grid_monthly,
+  cmip_grid,
+  by = c("t2m", "aice"),
+  suffixes = c("_cmip6", "_obs")
+) |>
+  _[t2m > -15] |>
+  #   _[,
+  #   .(rmse = cor(daice_cmip6, daice_obs, use = "complete.obs")),
+  #   by = .(model, experiment)
+  # ] |>
+
+  _[,
+    .(rmse = sqrt(mean((daice_cmip6 - daice_obs)^2, na.rm = TRUE))),
+    by = .(model, experiment)
+  ] |>
+  _[, order := rmse[experiment == "historical"], by = model] |>
+  _[, model := reorder(model, -order)]
+
+ice_rmse |>
+  ggplot(aes(model, rmse)) +
+  geom_col(aes(fill = experiment), position = "dodge") +
+  coord_flip() +
+  labs(x = NULL, y = "RMSE")
+
+```
+
+
+---
+
+
+```{r}
+cdo_area <- function(x) {
+  x |>
+    cdo_divc(100) |>
+    cdo_fldint() |>
+    cdo_execute()
+}
+
+ice_area <- cmip_files |>
+  _[variable == "siconc"] |>
+  _[,
+    ReadNetCDF(
+      cdo_area(file),
+      c(aice = "siconc"),
+      subset = list(time = c("1983-01-01", NA))
+    ),
+    by = .(experiment, model)
+  ]
+
+
+ice_area_obs <- ant_ice |>
+  _[, .(aice = sum(aice, na.rm = TRUE) * 25000 * 25000), by = .(time)] |>
+  _[, .(aice = mean(aice, na.rm = TRUE)), by = year(time)]
+```
+
+```{r}
+#| fig-width: 7
+#| fig-height: 7
+ice_area |>
+  _[model != "CanESM5"] |>
+  _[experiment == "historical"] |>
+  _[year(time) > 1980] |>
+  _[, .(aice = mean(aice)), by = .(model, experiment, year(time))] |>
+  ice_rmse[i = _, on = .NATURAL] |>
+  _[,
+    rmse := cut(
+      rmse,
+      breaks = quantile(rmse, probs = c(0, 1 / 3, 2 / 3, 1)),
+      include.lowest = TRUE,
+      labels = c("low error", "mid error", "high error")
+    )
+  ] |>
+  ggplot(aes(year, aice)) +
+  geom_line(aes(group = model)) +
+  geom_line(data = ice_area_obs[year < 2015], color = muted("violet")) +
+  facet_wrap(~rmse, ncol = 1) +
+  labs(y = "Annual mean area", x = NULL) +
+  interactivity()
+```
+
+---
+
+```{r}
+#| fig-width: 7
+#| fig-height: 7
+obs_trend <- ice_area_obs[year < 2015] |>
+  _[, FitLm(aice, year)] |>
+  _[term == "year"]
+
+ice_area |>
+  _[model != "CanESM5"] |>
+  _[experiment == "historical"] |>
+  _[, .(aice = mean(aice)), by = .(model, experiment, year(time))] |>
+  _[, FitLm(aice, year), by = .(model, experiment)] |>
+  _[term == "year"] |>
+  ice_rmse[i = _, on = .NATURAL] |>
+  ggplot(aes(rmse, estimate)) +
+  geom_point(aes(label = model)) +
+  geom_hline(
+    yintercept = obs_trend$estimate,
+    colour = muted("violet")
+  ) +
+  labs(y = "Linear trend", x = "RMSE") +
+  interactivity()
+
+```
+
+---
+
+```{r}
+#| fig-width: 7
+#| fig-height: 7
+obs_mean <- ice_area_obs[year < 2015] |>
+  _[, .(mean = mean(aice))]
+
+ice_area |>
+  _[model != "CanESM5"] |>
+  _[experiment == "historical"] |>
+  _[, .(aice = mean(aice)), by = .(model, experiment, year(time))] |>
+  _[, .(mean = mean(aice)), by = .(model, experiment)] |>
+  ice_rmse[i = _, on = .NATURAL] |>
+  ggplot(aes(rmse, mean)) +
+  geom_point(aes(label = model)) +
+  geom_hline(
+    yintercept = obs_mean$mean,
+    colour = muted("violet"),
+    label = "Obs sea ice area"
+  ) +
+  labs(y = "Mean sea ice area", x = "RMSE") +
+  interactivity()
+```
+
+```{r, cache = FALSE}
+knitr::knit_exit()
+```
+
+
+```{r}
+# had_area <- cmip_get(
+#   variable = c("siconc"),
+#   experiment = c("historical"),
+#   member = "*",
+#   model = "HadGEM3-GC31-LL"
+# ) |>
+#   _[, cdo_area(cmip_selantmerge(file)), by = .(member, model, experiment)]
+```
+
+```{r}
+# had_area |>
+#   _[, ReadNetCDF(V1, c(aice = "siconc")), by = .(member)] |>
+#   _[, .(aice = mean(aice)), by = .(year(time), member)] |>
+#   ggplot(aes(year, aice)) +
+#   geom_line(aes(group = member)) +
+#   geom_smooth(aes(group = member))
+```
+
+```{r}
+cdo_meant2m <- function(x) {
+  x |>
+    cdo_fldmean() |>
+    cdo_execute()
+}
+
+t2m_mean <- cmip_files |>
+  _[variable == "tas"] |>
+  _[, ReadNetCDF(cdo_meant2m(file), c(t2m = "tas")), by = .(experiment, model)]
+```
+
+
+
+```{r}
+area |>
+  # _[model %in% unique(cmip_grid$model)] |>
+  # add_errors() |>
+  copy() |>
+  # _[, aice := aice - mean(aice), by = .(model, month(time))] |>
+  _[, .(aice = mean(aice)), by = .(model, experiment, year(time))] |>
+  ggplot(aes(year, aice)) +
+  geom_line(aes(colour = experiment)) +
+  facet_wrap(~model) +
+  labs(title = "annual mean Antarctic sea ice area")
+```
+
+
+```{r}
+t2m_mean |>
+  _[model %in% unique(cmip_grid$model)] |>
+  copy() |>
+  # _[, t2m := aice - mean(aice), by = .(model, month(time))] |>
+  _[, .(t2m = mean(t2m)), by = .(model, year(time))] |>
+  ggplot(aes(year, t2m - 273.15)) +
+  geom_line() +
+  facet_wrap(~model) +
+  labs(title = "mean 2-m temp south of 50°S")
+
+```
+
+
+```{r}
+cmip_grid[grid_monthly, on = c("t2m", "aice")] |>
+  _[n > 10] |>
+  # _[, daice := daice - i.daice] |>
+  _[] |>
+  _[errors, on = "model"] |>
+  _[, model := reorder(model, -error)] |>
+  ggplot(aes(aice, t2m)) +
+  scale_color_manual(
+    NULL,
+    values = c(Growth = "blue", Melt = "red"),
+    guide = "none"
+  ) +
+  geom_contour_fill(
+    breaks = AnchorBreaks(0),
+    aes(z = daice, fill = ..level..)
+  ) +
+  geom_contour_tanaka(
+    breaks = AnchorBreaks(0),
+    aes(z = daice)
+  ) +
+  geom_contour2(
+    breaks = 0,
+    aes(z = daice),
+  ) +
+  #   geom_contour_fill(
+  #     aes(z = n, fill = NULL),
+  #     breaks = c(0, 100),
+  #     fill = "gray",
+  #     color = "gray30",
+  #     alpha = 0.5
+  #   ) +
+  #   geomtextpath::geom_texthline(
+  #     halign = "left",
+  #     data = data.frame(y = c(-10, -0.5), state = c("Growth", "Melt")),
+  #     aes(yintercept = y, label = state, color = state)
+  #   ) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend +
+  facet_wrap(~model)
+```
+
+```{r}
+
+cmip_grid |>
+  _[n > 10] |>
+  ggplot(aes(aice, t2m)) +
+  #   scale_color_manual(
+  #     NULL,
+  #     values = c(Growth = "blue", Melt = "red"),
+  #     guide = "none"
+  #   ) +
+  #   geom_contour_fill(
+  #     breaks = AnchorBreaks(0),
+  #     aes(z = daice, fill = ..level..)
+  #   ) +
+  #   geom_contour_tanaka(
+  #     breaks = AnchorBreaks(0),
+  #     aes(z = daice)
+  #   ) +
+  lapply(unique(cmip_grid$model), \(mod) {
+    geom_contour2(
+      data = \(x) x[model == mod],
+      breaks = 0,
+      aes(
+        color = mod,
+        z = daice
+      )
+    )
+  }) +
+  #   geom_contour_fill(
+  #     aes(z = n, fill = NULL),
+  #     breaks = c(0, 100),
+  #     fill = "gray",
+  #     color = "gray30",
+  #     alpha = 0.5
+  #   ) +
+  #   geomtextpath::geom_texthline(
+  #     halign = "left",
+  #     data = data.frame(y = c(-10, -0.5), state = c("Growth", "Melt")),
+  #     aes(yintercept = y, label = state, color = state)
+  #   ) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend
+```
+
+
+
+```{r}
+
+cmip_grid |>
+  copy() |>
+  _[, daice := daice - mean(daice), by = .(aice, t2m)] |>
+  ggplot(aes(aice, t2m)) +
+  scale_color_manual(
+    NULL,
+    values = c(Growth = "blue", Melt = "red"),
+    guide = "none"
+  ) +
+  geom_contour_fill(
+    breaks = AnchorBreaks(0),
+    aes(z = daice, fill = ..level..)
+  ) +
+  geom_contour_tanaka(
+    breaks = AnchorBreaks(0),
+    aes(z = daice)
+  ) +
+  geom_contour2(
+    breaks = 0,
+    aes(z = daice),
+  ) +
+  #   geom_contour_fill(
+  #     aes(z = n, fill = NULL),
+  #     breaks = c(0, 100),
+  #     fill = "gray",
+  #     color = "gray30",
+  #     alpha = 0.5
+  #   ) +
+  #   geomtextpath::geom_texthline(
+  #     halign = "left",
+  #     data = data.frame(y = c(-10, -0.5), state = c("Growth", "Melt")),
+  #     aes(yintercept = y, label = state, color = state)
+  #   ) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend +
+  facet_wrap(~model)
+```

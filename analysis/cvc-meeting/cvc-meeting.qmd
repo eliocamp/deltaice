@@ -1,0 +1,539 @@
+---
+title: "Untitled"
+format: html
+---
+
+```{r include=FALSE}
+#| label: setup
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.align = "center",
+  fig.height = 8,
+  dev = "png",
+  dpi = 200,
+  fig.width = 12,
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE,
+  cache.extra = 42
+)
+
+library(metR)
+library(lubridate)
+library(data.table)
+library(ggplot2)
+library(rcdo)
+future::plan("multicore", workers = parallelly::availableCores())
+
+cdo_cache_set(here::here("data/temp/cache"))
+cdo_options_set("-L")
+source(here::here("R/datasets.R"))
+source(here::here("R/ggplot.R"))
+
+ggplot2::theme_set(
+  ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(
+      panel.background = ggplot2::element_rect(fill = "#fafafa", color = NA),
+      legend.position = "bottom",
+      legend.title.position = "top",
+      legend.title = ggplot2::element_text(hjust = 0.5),
+      legend.frame = ggplot2::element_rect(color = "black", linewidth = 0.4),
+      legend.key.height = grid::unit(0.75, "lines")
+    )
+)
+
+range_tanaka <- c(0.01, 0.2)
+```
+
+```{r}
+#| label: topo
+topo <- cdo_topo(grid = "r720x360") |>
+  cdo_remapmean(grid = "r360x180") |>
+  cdo_remapbil(grid = CDR_grid()) |>
+  cdo_execute(options = "-f nc") |>
+  ReadNetCDF() |>
+  setnames(c("xgrid", "ygrid"), c("x", "y"))
+
+proj <- "+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=6378273 +b=6356889.449 +units=m +no_defs"
+```
+
+
+
+## Data and Methods
+
+* CDR data source
+
+
+
+```{r, cache = FALSE}
+#| label: ant_ice
+ant_ice <- CDR() |>
+  cdo_monmean() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("aice") |>
+  setnames(c("xgrid", "ygrid"), c("x", "y")) |>
+  _[, daice := c(diff(aice), NA), by = .(x, y)]
+```
+
+since 1983 because we found some problematic data before that. 
+
+* ERA5 data source
+
+```{r}
+#| label: temp_era_mon
+temp_era_mon <- ERA5_t2m() |>
+  cdo_monmean() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("t2m") |>
+  setnames(c("xgrid", "ygrid"), c("x", "y"))
+```
+
+```{r, cache = FALSE}
+#| label: daice
+daice <- ant_ice |>
+  _[year(time) > 1983] |>
+  _[temp_era_mon[year(time) >= 1983], on = .NATURAL] |>
+  _[year(time) < 2024] |>
+  _[, t2m := t2m - 273.15] |>
+  identity()
+```
+
+
+## Theory
+
+
+```{r}
+theory <- function(c, t) {
+  alpha <- 1
+  beta_f <- 1
+  beta_m <- 3
+  tf <- -1.8
+
+  f <- alpha * (1 - c) * (t - tf)
+
+  ifelse(f > 0, -beta_m * f * c, -beta_f * f * (1 - c))
+}
+```
+
+
+
+```{r}
+#| label: fig-theory-grid
+#| fig-height: 5.35
+#| fig-width: 8.24
+CJ(aice = seq(0, 1, length.out = 40), t2m = seq(-15, 5, length.out = 40)) |>
+  _[, theory := theory(aice, t2m)] |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = theory, fill = ..level..)) +
+  geom_contour2(aes(z = theory)) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(NA, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  )
+```
+
+
+```{r}
+#| label: daice_example
+daice_example <- daice |>
+  na.omit() |>
+  _[time == unique(time)[10]] |>
+  melt(id.vars = c("time", "x", "y"))
+
+```
+
+```{r}
+#| label: fig-example-fields
+#| fig-width: 6
+#| fig-height: 6.4
+vars <- c("aice", "daice", "t2m")
+
+scales <- list(
+  aice = scale_fill_gradientn(
+    "Sea ice concentration",
+    limits = c(0, 1),
+    labels = scales::label_percent(),
+    colours = c("#040613", "#3c4185", "#4177b6", "#7ec1d1", "#f4ffff")
+  ),
+  daice = scale_fill_gradient2("Sea ice concentration change"),
+  t2m = scale_fill_divergent(
+    "2-metre temperature",
+    midpoint = -1.8,
+    low = "#4575b4",
+    high = "#d73027"
+  )
+)
+
+lapply(vars, \(var) {
+  daice_example |>
+    _[variable == var] |>
+    ggplot(aes(x, y)) +
+    geom_contour_fill(
+      data = topo,
+      aes(z = topo),
+      breaks = seq(0, 4250, by = 250)
+    ) +
+    scale_fill_gradientn(colours = c("#b4b4b4", "white"), guide = "none") +
+    ggnewscale::new_scale_fill() +
+    geom_raster(aes(fill = value)) +
+    scales[[var]] +
+    coord_equal() +
+    theme_void() +
+    theme(
+      legend.position = "bottom",
+      legend.title.position = "top",
+      legend.key.width = unit(1, "null")
+    )
+})
+
+```
+
+```{r}
+#| label: fig-example-fields-points
+#| fig-width: 6
+#| fig-height: 6.4
+lapply(vars, \(var) {
+  daice_example |>
+    _[variable == var] |>
+    ggplot(aes(x, y)) +
+    geom_contour_fill(
+      data = topo,
+      aes(z = topo),
+      breaks = seq(0, 4250, by = 250)
+    ) +
+
+    scale_fill_gradientn(colours = c("#b4b4b4", "white"), guide = "none") +
+    ggnewscale::new_scale_fill() +
+    geom_raster(aes(fill = value)) +
+    scales[[var]] +
+    coord_equal() +
+    theme_void() +
+    theme(
+      legend.position = "bottom",
+      legend.title.position = "top",
+      legend.key.width = unit(1, "null")
+    ) +
+    annotate("point", x = -1.5e6, y = -2e6, shape = 0)
+})
+```
+
+
+```{r}
+#| fig-height: 5.35
+#| fig-width: 8.24
+#| label: fig-daice-points-monthly
+
+daice |>
+  _[t2m > -15] |>
+  ggplot(aes(aice, t2m)) +
+  scattermore::geom_scattermore(aes(color = daice)) +
+  scale_colour_gradient2("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend
+```
+
+
+
+
+
+```{r}
+cut_mid <- \(x, width, center) {
+  breaks <- AnchorBreaks(center + width / 2, binwidth = width)(range(x))
+
+  santoku::chop(x, breaks, labels = santoku::lbl_midpoints()) |>
+    as.character() |>
+    as.numeric()
+}
+
+
+grid_monthly <- daice |>
+  _[year(time) > 1983] |>
+  _[!is.na(daice)] |>
+  _[,
+    .(daice = mean(daice), n = sum(!is.na(daice))),
+    by = .(
+      t2m = cut_mid(t2m, 0.5, 0),
+      aice = cut_mid(aice, 0.05, 0)
+    )
+  ]
+
+```
+
+
+```{r}
+#| fig-height: 5.35
+#| fig-width: 8.24
+#| label: fig-daice-hex-monthly
+
+(daice_hex <- daice |>
+  _[!is.na(daice)] |>
+  _[t2m > -15] |>
+  # _[month == "Jun"] |>
+  ggplot(aes(aice, t2m)) +
+  stat_summary_hex(aes(z = daice), fun = \(x) {
+    if (length(x) < 10) {
+      return(NA)
+    }
+    mean(x)
+  }) +
+  geom_contour2(
+    data = grid_monthly[t2m > -15],
+    breaks = 0,
+    aes(z = daice, linetype = factor(-sign(..level..))),
+    linewidth = 2,
+    color = "mediumorchid"
+  ) +
+  # geom_point(data = daice, aes(fill = daice), shape = 21) +
+  # scale_color_gradient2("Monthly change in sea-ice concentration to the next month") +
+  scale_fill_gradient2("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(NA, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend)
+```
+
+
+```{r}
+#| fig-height: 5.35
+#| fig-width: 8.24
+#| label: fig-daice-hex-monthly-lines
+daice_hex +
+  geomtextpath::geom_texthline(
+    halign = "left",
+    data = data.frame(y = c(-10, 0.5), state = c("Growth", "Melt")),
+    aes(yintercept = y, label = state, color = state),
+    size = 7
+  ) +
+  scale_color_manual(
+    NULL,
+    values = c(Growth = "blue", Melt = "red"),
+    guide = "none"
+  )
+```
+
+
+
+```{r}
+#| fig-height: 4
+#| fig.width: 8.23
+#| label: fig-aice-lines
+
+grid_monthly |>
+  _[t2m == 0.5 | t2m == -10] |>
+  _[, state := ifelse(t2m < 0, "-10°C", "0.5°C")] |>
+  # _[, state := cut(t2m, breaks = c(0.5 - halfwidth_temp, 0.5+ halfwidth_temp, -10 - halfwidth_temp, -10 + halfwidth_temp))] |>
+  ggplot(aes(aice, daice)) +
+  geom_hline(yintercept = 0, colour = "gray") +
+  geom_line(
+    aes(
+      color = state,
+      linetype = "Observed",
+    ),
+    linewidth = 1
+  ) +
+  # geom_line(
+  #   aes(
+  #     y = daice2,
+  #     color = state,
+  #     linetype = "Fitted",
+  #   ),
+  #   linewidth = 1
+  # ) +
+  stat_function(
+    fun = \(x) -(1 - x) * x,
+    aes(color = "0.5°C", linetype = "Theory"),
+  ) +
+  stat_function(
+    fun = \(x) (1 - x)^2,
+    aes(color = "-10°C", linetype = "Theory"),
+  ) +
+  scale_color_manual(
+    "2-m temperature",
+    values = c("0.5°C" = "red", "-10°C" = "blue")
+  ) +
+  scale_y_continuous("dC/dt") +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  )
+```
+
+
+```{r}
+daice_sample <- daice |>
+  na.omit() |>
+  _[t2m > -15] |>
+  _[aice != 0] |>
+  _[sample(100000)]
+
+```
+
+```{r}
+#| label: fig-t2m-aice
+#| fig-width: 5.81
+#| fig-height: 2.57
+daice_sample |>
+  ggplot(aes(t2m, aice)) +
+  geom_point(alpha = 0.1, size = 0.2) +
+  scale_y_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    # limits = c(NA, 2.5),
+    expand = c(0, 0)
+  )
+```
+
+```{r}
+#| label: fig-t2m-daice
+#| fig-width: 5.81
+#| fig-height: 2.57
+daice_sample |>
+  ggplot(aes(t2m, daice)) +
+  geom_point(alpha = 0.1, size = 0.2) +
+  scale_y_continuous(
+    "dC/dt",
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    # limits = c(NA, 2.5),
+    expand = c(0, 0)
+  )
+```
+
+```{r}
+#| label: lm_constrained
+lm_constrained <- function(data, formula) {
+  # Design matrix for polynomial fit (example: quadratic in t2m, linear in aice)
+  # formula <-
+  X <- model.matrix(formula, data = data)
+
+  y <- data$daice
+
+  # Quadratic programming setup
+  Dmat <- t(X) %*% X
+  dvec <- t(X) %*% y
+
+  # Constraints:
+  # If aice=0 → fitted >= 0
+  # If aice=1 → fitted <= 0
+  # → These are linear in coefficients: X %*% beta >= 0 for rows with aice=0,
+  #    X %*% beta <= 0 for rows with aice=1.
+
+  A1 <- X[data$aice == 0, , drop = FALSE]
+  b1 <- rep(0, nrow(A1))
+
+  A2 <- -X[data$aice == 1, , drop = FALSE]
+  b2 <- rep(0, nrow(A2))
+
+  # negative values at high temp
+  A3 <- -X[data$t2m > 0 & !(data$aice == 0), , drop = FALSE]
+  b3 <- rep(0, nrow(A3))
+
+  # positive values at low temp
+  A4 <- X[data$t2m < -15 & !(data$aice == 1), , drop = FALSE]
+  b4 <- rep(0, nrow(A4))
+
+  Amat <- t(rbind(A1, A2, A3, A4)) # constraints in quadprog form: t(Amat) %*% beta >= bvec
+  bvec <- c(b1, b2, b3, b4)
+
+  fit <- quadprog::solve.QP(Dmat, dvec, Amat, bvec)
+
+  # Create a normal lm fit and replace coefficients with the new
+  formula2 <- as.formula(paste0("daice ~ ", as.character(formula)[2]))
+  mod <- lm(formula2, data = data[1:100, ])
+  mod$coefficients <- fit$solution
+  mod
+}
+```
+
+```{r}
+#| label: model_monthly
+n_samples <- 500000
+model_monthly <- daice |>
+  na.omit() |>
+  _[year(time) < 2014]
+
+
+# Make sure that we've got all the extreme low cases to ensure
+# that the function is positive at those values.
+temp_extreme <- -30
+model_monthly <- rbind(
+  model_monthly[t2m > temp_extreme][withr::with_seed(
+    42,
+    sample(.N, n_samples)
+  )],
+  model_monthly[t2m <= temp_extreme]
+) |>
+  lm_constrained(~ poly(t2m, aice, degree = 6, raw = TRUE))
+```
+
+```{r}
+r2 <- daice |>
+  na.omit() |>
+  _[t2m > temp_extreme] |>
+  _[sample(.N, n_samples)] |>
+  _[, poly := predict(model_monthly, newdata = .SD)] |>
+  _[, error := daice - poly] |>
+  _[, .(var_obs = var(daice), var_error = var(error))] |>
+  _[, 1 - var_error / var_obs]
+
+```
+
+```{r}
+#| label: fig-hex-with-contours
+#| fig-height: 5.35
+#| fig-width: 8.24
+
+pred <- CJ(
+  aice = seq(0, 1, length.out = 80),
+  t2m = seq(-15, 5, length.out = 80)
+) |>
+  _[t2m > -15] |>
+  _[, poly := predict(model_monthly, newdata = .SD)] |>
+  _[]
+
+daice_hex +
+  geom_contour2(
+    data = pred,
+    aes(z = poly, label = ..level.., linetype = factor(-sign(..level..)))
+  ) +
+  guides(linetype = "none")
+```
+
+
+```{r, cache = FALSE}
+knitr::knit_exit()
+```
+
+# Integration
+

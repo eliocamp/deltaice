@@ -1,0 +1,747 @@
+---
+title: "Preparing your manuscript"
+format:
+    agu-pdf:
+        keep-tex: true
+    agu-html: default
+author:
+  - name: Michael J Mahoney
+    affiliations:
+      - name: State University of New York College of Environmental Science and Forestry
+        department: Graduate Program in Environmental Science
+        address: 1 Forestry Drive
+        city: Syracuse
+        region: NY
+        country: USA
+        postal-code: 13210
+    orcid: 0000-0003-2402-304X
+    email: fake_email@fakeyfake.com
+    url: https://mm218.dev
+    acknowledgements: Translated template to Quarto.
+  - name: Charles Teague
+    affiliations:
+      - name: Posit, PBC
+        address: 250 Northern Ave
+        city: Boston
+        region: Massachusetts
+        country: USA
+        postal-code: 02210
+    corresponding: true
+    orcid: 0000-0001-8715-9476
+    email: charles@posit.co
+
+keywords: []
+key-points:
+  - Key Points convey the main points and conclusions of the article. 
+  - Up to three key point statements are allowed, and each is limited to at most 140 characters with no abbreviations.
+  - Key Points are not included in the word count.
+bibliography: bibliography.bib  
+citation:
+  container-title: Geophysical Research Letters
+keep-tex: true
+date: last-modified
+filters:
+  - abstract-section
+abstract-section:
+  section-identifiers:
+    - abstract
+    - plain-language-summary  
+---
+
+## Abstract
+
+The abstract (1) states the nature of the investigation and (2) summarizes the important conclusions. The abstract should be suitable for indexing. Your abstract should:
+
+  - Be set as a single paragraph.
+  - Be less than 250 words for all journals except GRL, for which the limit is 150 words.
+  - Not include table or figure mentions.
+  - Avoid reference citations unless dependent on or directly related to another paper (e.g., companion, comment, reply, or commentary on another paper(s)). AGU’s Style Guide discusses formatting citations in abstracts.
+  - Define all abbreviations.
+
+
+## plain-language-summary
+
+A Plain Language Summary (PLS) can be an incredibly effective science communication tool. By summarizing your paper in non-technical terms, you can explain your research and its relevance to a much broader audience. A PLS is required for submissions to AGU Advances, G-Cubed, GeoHealth, GRL, JAMES, JGR: Biogeosciences, JGR: Oceans, JGR: Planets, JGR: Solid Earth, JGR: Atmospheres, Space Weather, and Reviews of Geophysics, but optional for other journals.  A PLS should be no longer than 200 words and should be free of jargon, acronyms, equations, and any technical information that would be unknown to people from outside your scientific discipline. Read our tips for creating an effective PLS.
+
+
+## Introduction
+
+
+
+```{r include=FALSE}
+#| label: setup
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.align = "center",
+  fig.height = 8,
+  dev = c("png", "svg"),
+  dpi = 200,
+  fig.width = 12,
+  message = FALSE,
+  warning = FALSE,
+  cache = FALSE,
+  cache.extra = 42
+)
+
+library(metR)
+library(lubridate)
+library(data.table)
+library(ggplot2)
+library(rcdo)
+future::plan("multicore", workers = parallelly::availableCores())
+
+cdo_cache_set(here::here("data/temp/cache"))
+cdo_options_set("-L")
+source(here::here("R/datasets.R"))
+source(here::here("R/ggplot.R"))
+
+ggplot2::theme_set(
+  ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(
+      panel.background = ggplot2::element_rect(fill = "#fafafa", color = NA),
+      legend.position = "bottom",
+      legend.title.position = "top",
+      legend.title = ggplot2::element_text(hjust = 0.5),
+      legend.frame = ggplot2::element_rect(color = "black", linewidth = 0.4),
+      legend.key.height = grid::unit(0.75, "lines")
+    )
+)
+
+range_tanaka <- c(0.01, 0.2)
+```
+
+```{r}
+#| label: topo
+topo <- cdo_topo(grid = "r720x360") |>
+  cdo_remapmean(grid = "r360x180") |>
+  cdo_remapbil(grid = CDR_grid()) |>
+  cdo_execute(options = "-f nc") |>
+  ReadNetCDF() |>
+  setnames(c("xgrid", "ygrid"), c("x", "y"))
+
+proj <- "+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=6378273 +b=6356889.449 +units=m +no_defs"
+```
+
+
+## Data and Methods
+
+* CDR data source
+
+
+```{r}
+days <- 5
+daice_daily <- merge(
+  CDR() |>
+    cdo_selday(days) |>
+    cdo_execute() |>
+    ReadNetCDF(),
+
+  CDR() |>
+    cdo_deltat() |>
+    cdo_selday(days + 1) |>
+    cdo_shifttime("-1day") |>
+    cdo_execute() |>
+    ReadNetCDF(c(daice = "aice"))
+)
+
+
+daice_daily <- merge(
+  ERA5_t2m() |>
+    cdo_selday(days) |>
+    cdo_execute() |>
+    ReadNetCDF("t2m"),
+  daice_daily
+) |>
+  _[, t2m := t2m - 273.15] |>
+  setnames(c("xgrid", "ygrid"), c("x", "y"))
+```
+
+
+* ACCESS-S2 data source
+
+
+## Results
+
+* Description of the conceptual model + equations
+
+### Simple model of sea ice growth 
+
+I start with a simplified model of sea-ice growth.
+In this model, each cell has an area of water and of an area covered with ice. 
+Assuming that sea ice is a perfect insulator, the ocean surface exchanges heat with the atmosphere only in the ice-free surface. 
+This heat flux is parameterised with a bulk formula with a constant exchange coefficent and sea surface temperature is assumed to be constant and equal to the freezing point. 
+This latter assumption is somewhat justified by the fact that a mixture of water and ice in thermodynamic equilibrium will stay at the freezing point, and any heat gain or loss will either melt or freeze more ice.
+
+The full formula for the heat exchange per unit area then is 
+
+$$
+F = \alpha (T_a - T_o) (1 - I_a)
+$$
+
+Where, $T_o$ and $T_a$ are the temperature of the ocean and the atmosphere respectively, $I_a$ is the proportion of the gridcell covered with ice and $\alpha$ is a proportionality constant. 
+
+The change in sea-ice concentration will be related to $F$. 
+If $F$ is negative, the heat lost to the ocean is balanced by freezing. 
+However, because only ice-free areas can freeze, I assume that the change in sea-ice concentration is also proportial to the ice-free area. 
+
+$$
+\frac{dI_a}{dt} = \beta_f F (1 - I_a)
+$$
+
+Where $\beta_f$ is a freezing proportionality constant. 
+
+If $F$ is positive, the ocean gains heat which is used to melt ice. 
+In this case it is only ice-covered areas which can metl, making the change in sea-ice concentration proportional to sea-ice concentation itself.
+
+$$
+\frac{dI_a}{dt} = \beta_m F I_a
+$$
+
+Where $\beta_m$ is a memlting proportionality constant that in principle could be different from $\beta_f$. 
+
+The full model, therefore is
+
+$$
+\frac{dI_a}{dt} =
+\begin{cases}
+\beta_f \alpha (T_a - T_o) (1 - I_a)^2    & \text{if } T_a \le T_o, \\
+\beta_m \alpha (T_a - T_o) (1 - I_a) I_a  & \text{if } T_a \gt T_o
+
+\end{cases}
+$$
+
+
+
+* Properties of the model
+
+This parameterisation predicts diverging behaviours of sea-ice growth and retreat. 
+
+For a given air temperature, sea-ice growth should be maximum at low sea-ice concentrations since that maximises both the heat loss and available ice-free ocean. 
+At high sea-ice concentrations, heat fluxes are suppressed and there is little open water to freeze, leading to slow growth. 
+Sea-ice melt, on the other hand, should be zero both at high and low concentrations either because there is no ice to melt or the ice insulates heat gains from the atmosphere. 
+Maximum melt should be at around 50% sea-ice concentrations, when there is enough ice to melt and enough ice-free ocean for the ocean to gain heat. 
+
+
+```{r, cache = FALSE}
+knitr::knit_exit()
+```
+
+
+
+```{r}
+#| label: ant_ice
+ant_ice <- CDR() |>
+  cdo_monmean() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("aice") |>
+  setnames(c("xgrid", "ygrid"), c("x", "y")) |>
+  _[, daice := c(diff(aice), NA), by = .(x, y)]
+```
+
+since 1983 because we found some problematic data before that. 
+
+* ERA5 data source
+
+```{r}
+#| label: temp_era_mon
+temp_era_mon <- ERA5_t2m() |>
+  cdo_monmean() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("t2m") |>
+  setnames(c("xgrid", "ygrid"), c("x", "y"))
+```
+
+```{r}
+#| label: daice
+daice <- ant_ice |>
+  _[year(time) > 1983] |>
+  _[temp_era_mon[year(time) >= 1983], on = .NATURAL] |>
+  _[year(time) < 2024] |>
+  _[, t2m := t2m - 273.15] |>
+  identity()
+```
+
+```{r}
+
+lm_constrained <- function(data, formula) {
+  # Design matrix for polynomial fit (example: quadratic in t2m, linear in aice)
+  # formula <-
+  X <- model.matrix(formula, data = data)
+
+  y <- data$daice
+
+  # Quadratic programming setup
+  Dmat <- t(X) %*% X
+  dvec <- t(X) %*% y
+
+  # Constraints:
+  # If aice=0 → fitted >= 0
+  # If aice=1 → fitted <= 0
+  # → These are linear in coefficients: X %*% beta >= 0 for rows with aice=0,
+  #    X %*% beta <= 0 for rows with aice=1.
+
+  A1 <- X[data$aice == 0, , drop = FALSE]
+  b1 <- rep(0, nrow(A1))
+
+  A2 <- -X[data$aice == 1, , drop = FALSE]
+  b2 <- rep(0, nrow(A2))
+
+  # negative values at high temp
+  A3 <- -X[data$t2m > 0 & !(data$aice == 0), , drop = FALSE]
+  b3 <- rep(0, nrow(A3))
+
+  # positive values at low temp
+  A4 <- X[data$t2m < -15 & !(data$aice == 1), , drop = FALSE]
+  b4 <- rep(0, nrow(A4))
+
+  Amat <- t(rbind(A1, A2, A3, A4)) # constraints in quadprog form: t(Amat) %*% beta >= bvec
+  bvec <- c(b1, b2, b3, b4)
+
+  fit <- quadprog::solve.QP(Dmat, dvec, Amat, bvec)
+
+  # Create a normal lm fit and replace coefficients with the new
+  formula2 <- as.formula(paste0("daice ~ ", as.character(formula)[2]))
+  mod <- lm(formula2, data = data[1:100, ])
+  mod$coefficients <- fit$solution
+  mod
+}
+```
+
+```{r}
+#| label: model_monthly
+n_samples <- 500000
+model_monthly <- daice |>
+  na.omit() |>
+  _[year(time) < 2014]
+
+
+# Make sure that we've got all the extreme low cases to ensure
+# that the function is positive at those values.
+temp_extreme <- -30
+model_monthly <- rbind(
+  model_monthly[t2m > temp_extreme][withr::with_seed(
+    42,
+    sample(.N, n_samples)
+  )],
+  model_monthly[t2m <= temp_extreme]
+) |>
+  lm_constrained(~ poly(t2m, aice, degree = 6, raw = TRUE))
+```
+
+```{r}
+daice |>
+  na.omit() |>
+  _[year(time) < 2014] |>
+  _[withr::with_seed(42, sample(.N, n_samples))] |>
+  ggplot(aes(t2m, aice))
+```
+
+```{r}
+cut_mid <- \(x, width, center) {
+  breaks <- AnchorBreaks(center + width / 2, binwidth = width)(range(x))
+
+  santoku::chop(x, breaks, labels = santoku::lbl_midpoints()) |>
+    as.character() |>
+    as.numeric()
+}
+
+
+grid_monthly <- daice |>
+  _[year(time) > 1983] |>
+  _[!is.na(daice)] |>
+  _[,
+    .(daice = mean(daice), n = sum(!is.na(daice))),
+    by = .(
+      t2m = cut_mid(t2m, 0.5, 0),
+      aice = cut_mid(aice, 0.05, 0)
+    )
+  ]
+
+```
+
+
+```{r}
+grid_daily <- daice_daily |>
+  _[year(time) > 1983] |>
+  _[!is.na(daice)] |>
+  _[,
+    .(daice = mean(daice), n = sum(!is.na(daice))),
+    by = .(
+      t2m = cut_mid(t2m, 0.5, 0),
+      aice = cut_mid(aice, 0.05, 0)
+    )
+  ]
+
+```
+
+```{r}
+#| label: model_daily
+model_daily <- daice_daily |>
+  na.omit() |>
+  _[year(time) < 2014]
+
+temp_extreme <- -30
+model_daily <- rbind(
+  model_daily[t2m > temp_extreme][withr::with_seed(42, sample(.N, n_samples))],
+  model_daily[t2m <= temp_extreme]
+) |>
+  lm_constrained(~ poly(t2m, aice, degree = 6, raw = TRUE))
+```
+
+```{r}
+
+```
+
+```{r}
+# dc <- function(
+#   ta,
+#   c,
+#   Fo = 1,
+#   to = -1.8,
+#   alpha = 1,
+#   beta_f = 1,
+#   beta_m = beta_f
+# ) {
+#   sharpness <- 50
+
+#   air_flux <- alpha * (ta - to) * (1 - c)
+#   ocean_flux <- Fo * c * (1 - c)
+
+#   norm <- \(x) {
+#     (tanh(sharpness * x) + 1) / 2
+#   }
+
+#   air_flux <- air_flux *
+#     (beta_m * norm(air_flux) * c + beta_f * norm(-air_flux) * (1 - c))
+
+#   -air_flux - beta_m * ocean_flux * c
+# }
+
+```
+
+```{r}
+d <- daice |>
+  na.omit() |>
+  _[year(time) < 2014] |>
+  _[t2m > -10 & t2m < 1] |>
+  _[withr::with_seed(42, sample(.N, 200000))]
+```
+
+
+```{r}
+d_daily <- daice_daily |>
+  na.omit() |>
+  _[year(time) < 2014] |>
+  _[t2m > -10 & t2m < 1] |>
+  _[withr::with_seed(42, sample(.N, 200000))]
+```
+
+
+
+```{r}
+Rcpp::sourceCpp(here::here("analysis/paper/daice.cpp"))
+mod <- minpack.lm::nlsLM(
+  daice ~
+    daice_cpp(
+      t2m,
+      aice,
+      to = to,
+      alpha = 1,
+      Fo = Fo,
+      beta_f = beta_f,
+      beta_m = beta_m
+    ),
+  data = d,
+  start = c(Fo = 1, to = -1.8, beta_f = 0.16, beta_m = 1.25),
+  lower = c(Fo = 0, to = -20, beta_f = 0, beta_m = 0),
+  control = minpack.lm::nls.lm.control(maxiter = 200)
+) |>
+  withr::with_seed(seed = 42)
+
+
+```
+
+```{r}
+grid_monthly |>
+  _[t2m > -15 & t2m < 1] |>
+  _[, daice2 := predict(mod, .SD)] |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = daice2)) +
+  scale_fill_gradient2()
+```
+
+```{r}
+Rcpp::sourceCpp(here::here("analysis/paper/daice.cpp"))
+mod_daily <- minpack.lm::nlsLM(
+  daice ~
+    daice_cpp(
+      t2m,
+      aice,
+      to = to,
+      alpha = alpha,
+      Fo = Fo,
+      beta_f = beta_f,
+      beta_m = beta_m
+    ),
+  data = d_daily,
+  start = c(alpha = 1, Fo = 1, to = -1.8, beta_f = 0.16, beta_m = 1.25),
+  lower = c(alpha = 0, Fo = 0, to = -20, beta_f = 0, beta_m = 0),
+  control = minpack.lm::nls.lm.control(maxiter = 200)
+) |>
+  withr::with_seed(seed = 42)
+
+grid_daily[, daice2 := predict(mod_daily, .SD)]
+```
+
+```{r}
+grid_daily |>
+  _[t2m > -15 & t2m < 1] |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = daice2)) +
+  scale_fill_gradient2()
+```
+
+```{r}
+#| fig-height: 5.250
+#| fig.width: 15.365
+#| label: fig-aice-lines
+
+grid_monthly |>
+  _[t2m == 0.5 | t2m == -10] |>
+  _[, state := ifelse(t2m < 0, "-10°C", "0.5°C")] |>
+  # _[, state := cut(t2m, breaks = c(0.5 - halfwidth_temp, 0.5+ halfwidth_temp, -10 - halfwidth_temp, -10 + halfwidth_temp))] |>
+  ggplot(aes(aice, daice)) +
+  geom_hline(yintercept = 0, colour = "gray") +
+  geom_line(
+    aes(
+      color = state,
+      linetype = "Observed",
+    ),
+    linewidth = 1
+  ) +
+  # geom_line(
+  #   aes(
+  #     y = daice2,
+  #     color = state,
+  #     linetype = "Fitted",
+  #   ),
+  #   linewidth = 1
+  # ) +
+  stat_function(
+    fun = \(x) -(1 - x) * x,
+    aes(color = "0.5°C", linetype = "Theory"),
+  ) +
+  stat_function(
+    fun = \(x) (1 - x)^2,
+    aes(color = "-10°C", linetype = "Theory"),
+  ) +
+  scale_color_manual(
+    "2-m temperature",
+    values = c("0.5°C" = "red", "-10°C" = "blue")
+  ) +
+  scale_y_continuous("dC/dt") +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  )
+```
+
+
+@fig-aice-lines shows the average change in monhtly sea-ice concentration as function of sea-ice concentration for gridcells with 2-m temperature -10°C $\pm$ 0.1°C (ice growth) and 0.5°C $\pm$ 01°C (melt). 
+The observed behaviour fits expectations well. 
+Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea-ice insulation. 
+Growth follows the expected curve, with low growth at high concentrations and high growth at low concentrations. 
+However, it deviates from the model in two ways. 
+First, at sea-ice concentrations lower than 25%, growth is lower than expected. 
+Second, at very high concentrations sea-ice actually melts irregardless of air temperature. 
+
+```{r}
+#| fig-height: 7.667
+#| fig-width: 10.323
+#| label: fig-daice-hex-monthly
+
+grid_monthly |>
+  ggplot(aes(aice, t2m)) +
+  scale_color_manual(
+    NULL,
+    values = c(Growth = "blue", Melt = "red"),
+    guide = "none"
+  ) +
+  geom_contour_fill(
+    breaks = AnchorBreaks(0),
+    aes(z = daice, fill = ..level..)
+  ) +
+  geom_contour_tanaka(
+    breaks = AnchorBreaks(0),
+    aes(z = daice)
+  ) +
+  geom_contour2(
+    breaks = 0,
+    aes(z = daice),
+  ) +
+  geom_contour_fill(
+    aes(z = n, fill = NULL),
+    breaks = c(0, 100),
+    fill = "gray",
+    color = "gray30",
+    alpha = 0.5
+  ) +
+  geomtextpath::geom_texthline(
+    halign = "left",
+    data = data.frame(y = c(-10, -0.5), state = c("Growth", "Melt")),
+    aes(yintercept = y, label = state, color = state)
+  ) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend
+```
+
+A more complete picture is in @fig-daice-hex-monthly which shows average sea-ice concentration change as a function of monthly sea-ice concentrations and 2-metre temperature.
+The purple line uses a polinomial fit to estimate the "zero line" that divides sea-ice growth from melt. 
+Contraty to the model's assumptiont, this zero line is not constant and instead depends heavily on sea-ice concentration. 
+At low concentrations, air temperatures just below freezing are enough to cause sea-ice growth on average, but at high concentrations, the air needs to be extremely cold for ice not to melt. 
+
+This property cannot be captured by the model in equation XX, which assumes that sea ice will grow whenever air temperature is below the freezing point of ocean water. 
+A possible refinement of the model is to add a constant positive melting flux representing melting of sea-ice from the bottom by the relatively warmer subsurface water. 
+Under this formulation, ice would grow only if the freezing at the surface from the atmosphere was larger than the melting from the ocean, which would require more extreme air temperature when ice insulation is higher. 
+However, a constant heat flux would imply maximum melt at high concentration when the atmospheric flux is nullified. 
+To solve that problem, a further refinemnet is to assume that the ocean melting is also proportional to the ice-free surface. 
+This admitedly ad-hoc supossition could model the effect of waves and wind in creating turbulent mixing of the upper layers. 
+
+In this full model the change in sea-ice concentration is decomposed into change due to air fluxes and ocean fluxes. 
+
+$$
+\frac{dI_a}{dt} = \frac{dI_a}{dt}\Bigg|_a  + \frac{dI_a}{dt}\Bigg|_o 
+$$
+
+Where $\frac{dI_a}{dt}\Bigg|_a$ is computed as before and $\frac{dI_a}{dt}\Bigg|_o $ is 
+
+$$
+\frac{dI_a}{dt}\Bigg|_o =
+
+\beta_m F_o (1 - I_a) I_a 
+$$
+
+Where $F_o$ is a constant flux. 
+
+
+```{r}
+grid_monthly |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(
+    breaks = AnchorBreaks(0),
+    aes(z = daice2, fill = ..level..)
+  ) +
+  geom_contour_tanaka(
+    breaks = AnchorBreaks(0),
+    aes(z = daice2)
+  ) +
+  geom_contour2(
+    breaks = 0,
+    aes(z = daice2),
+  ) +
+  geom_contour_fill(
+    aes(z = n, fill = NULL),
+    breaks = c(0, 100),
+    fill = "gray",
+    color = "gray30",
+    alpha = 0.5
+  ) +
+  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 2.5),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea-ice concentration",
+    expand = c(0, 0)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend
+```
+
+* Possible refinements of the model
+
+* Integration of the model
+
+
+```{r}
+#| label: interpolate_cpp
+Rcpp::sourceCpp(here::here("analysis/random/interpolate_cpp.cpp"))
+```
+
+
+```{r}
+#| label: era_temp_fun
+era_temp_fun <- function(data) {
+  t2m_matrix <- data[, .(time, lon, lat, t2m)] |>
+    metR:::.tidy2matrix(lon + lat ~ time, value.var = "t2m") |>
+    _$matrix
+  t2m_time <- 0:(ncol(t2m_matrix) - 1)
+
+  function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
+}
+
+```
+
+
+```{r}
+#| label: poly_interactions
+Rcpp::sourceCpp(here::here("analysis/random/poly_interactions_cpp.cpp"))
+```
+
+
+```{r}
+#| label: d_ice
+d_ice <- function(coefs, inflation = 1) {
+  force(coefs)
+  force(inflation)
+  function(state, time, forcing) {
+    t2m <- forcing(time)
+    x <- poly_interactions_cpp(t2m, state, 3)
+
+    d_ice <- as.vector(coefs %*% t(x)) * inflation
+
+    d_ice <- fifelse(state >= 1 & d_ice > 0, 0, d_ice)
+    d_ice <- fifelse(state <= 0 & d_ice < 0, 0, d_ice)
+    d_ice
+  }
+}
+```
+
+```{r}
+#| label: integration
+source(here::here("R/integration.R"))
+```
+
+* Extent 
+
+* Correlation, RMSE and Bias. (w/ comparisons with ACCESS-S2)
+
+## Conclusions
+
+
+
+## Acknowledgments
+
+Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
+
+## Open research
+
+Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
+
+## References {.unnumbered}

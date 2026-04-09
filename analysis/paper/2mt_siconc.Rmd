@@ -1,0 +1,542 @@
+---
+title: "Untitled"
+output: html_document
+date: "2025-03-12"
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, 
+                      cache = TRUE, 
+                      warning = FALSE, 
+                      message = FALSE, 
+                      fig.align = "center",
+                      fig.width = 12, 
+                      fig.height = 7)
+
+library(ggplot2)
+library(metR)
+library(lubridate)
+library(data.table)
+library(rcdo)
+library(patchwork)
+library(furrr)
+cdo_options_set("-L")
+h <- here::here
+
+source(h("R/functions.R"))
+source(h("R/datasets.R"))
+source(h("R/ggplot.R"))
+source(h("R/operations.R"))
+
+
+breaks_zero <- AnchorBreaks(0, exclude = 0)
+
+knitr::opts_chunk$set(echo = TRUE)
+future::plan("multisession", workers = 4)
+```
+
+```{r}
+
+CDR_full <- function() {
+  file <- here::here("data/raw/cdr_full.nc")
+  years <- 1981:2023
+  
+  if (file.exists(file)) {
+    return(file)
+  }
+  
+  urls <- paste0(
+    "https://polarwatch.noaa.gov/erddap/griddap/nsidcG02202v4sh1day.nc?cdr_seaice_conc[(",
+    years,
+    "-01-01T00:00:00Z):1:(",
+    years,
+    "-12-31T00:00:00Z)][(4350000.0):1:(-3950000.0)][(-3950000.0):1:(3950000.0)]"
+  )
+  
+  files <- replicate(length(urls), tempfile())
+  res <- curl::multi_download(urls, files, resume = TRUE)
+  
+  files |>
+    rcdo::cdo_mergetime() |>
+    cdo_chname("cdr_seaice_conc", "aice") |>
+    cdo_del29feb() |>
+    rcdo::cdo_setgrid(CDR_grid()) |>
+    rcdo::cdo_execute(output = file, options = c("-L", "-O"))
+  
+  remove(files)
+  return(file)
+}
+```
+
+
+```{r}
+process <- function(files, output) {
+  return_if_exists(output)
+  
+  files |> 
+    furrr::future_map(\(file) {
+      file |> 
+        cdo_remapbil(CDR_grid()) |> 
+        cdo_execute(tempfile(), options = c("-L", "-s"))
+    }, .progress = TRUE) |> 
+    cdo_mergetime() |> 
+    cdo_execute(output, options = c("-L", "-s"))
+}
+```
+
+```{r}
+cdo_anomalies <- function(file) {
+  cdo_ymonsub(file, cdo_ymonmean(file))
+}
+```
+
+
+```{r}
+t2m_era5 <- "/g/data/rt52/era5/single-levels/monthly-averaged/2t/*/*.nc" |> 
+  Sys.glob() |> 
+  process(here::here("data/derived/t2mera5.nc"))
+
+sst_era5 <- "/g/data/rt52/era5/single-levels/monthly-averaged/sst/*/*.nc" |> 
+  Sys.glob() |> 
+  process(here::here("data/derived/sstera5.nc"))
+
+ice_era5 <- "/g/data/rt52/era5/single-levels/monthly-averaged/ci/*/*.nc" |> 
+  Sys.glob() |> 
+  process(here::here("data/derived/ice_era5.nc"))
+```
+
+
+```{r}
+ice <- CDR_full() |> 
+  cdo_monmean() |> 
+  cdo_execute()
+
+ice_anom <- cdo_ymonsub(ice, cdo_ymonmean(ice)) |> 
+  cdo_setday(1) |> 
+  cdo_execute() 
+```
+
+
+```{r}
+ice_cesm2 <- "/g/data/oi10/replicas/CMIP6/CMIP/NCAR/CESM2/piControl/r1i1p1f1/SImon/siconc/gn/v20190320/*.nc" |> 
+  Sys.glob() |> 
+  process(here::here("data/derived/ice_cesm2.nc"))
+
+tas_cesm2 <- "/g/data/oi10/replicas/CMIP6/CMIP/NCAR/CESM2/piControl/r1i1p1f1/Amon/tas/gn/v20190320/*.nc" |>
+  Sys.glob() |> 
+  process(here::here("data/derived/tas_cesm2"))
+
+sst_cesm2 <- "/g/data/oi10/replicas/CMIP6/CMIP/NCAR/CESM2/piControl/r1i1p1f1/Omon/tos/gn/v20190320/*.nc" |>
+  Sys.glob() |> 
+  process(here::here("data/derived/sst_cesm2"))
+
+```
+
+
+```{r}
+
+
+ice_access<- "/g/data/fs38/publications/CMIP6/CMIP/CSIRO/ACCESS-ESM1-5/piControl/r1i1p1f1/SImon/siconc/gn/latest/*.nc" |> 
+  Sys.glob() |> 
+  process(here::here("data/derived/ice_accessesm.nc"))
+
+tas_access <- "/g/data/fs38/publications/CMIP6/CMIP/CSIRO/ACCESS-ESM1-5/piControl/r1i1p1f1/Amon/tas/gn/latest/*.nc" |>
+  Sys.glob() |> 
+  process(here::here("data/derived/tas_accessesm.nc"))
+
+sst_access <- "/g/data/fs38/publications/CMIP6/CMIP/CSIRO/ACCESS-ESM1-5/piControl/r1i1p1f1/Omon/tos/gn/latest/*.nc" |>
+  Sys.glob() |> 
+  process(here::here("data/derived/sst_accessesm.nc"))
+```
+
+
+Mean SST -- 2-m air temperature difference
+
+```{r}
+cdo_sub(cdo_ymonmean(sst_era5), cdo_ymonmean(t2m_era5)) |> 
+  cdo_execute() |>
+  ReadNetCDF("sst") |> 
+  ggplot(aes(xgrid, ygrid)) +
+  geom_contour_fill(aes(z = sst)) +
+  scale_fill_divergent() +
+  facet_wrap(~ month(time)) +
+  geomcoord_antarctica +
+  geom_antarctica_fill +
+  coord_equal()
+```
+
+
+SSTs are much warmer than the atmospheres in the sea ice region. 
+
+
+```{r}
+cdo_sub(cdo_ymonmean(cdo_addc(sst_cesm2, 273.15)), cdo_ymonmean(tas_cesm2)) |> 
+  cdo_execute() |>
+  ReadNetCDF("tos") |> 
+  ggplot(aes(xgrid, ygrid)) +
+  geom_contour_fill(aes(z = tos)) +
+  scale_fill_divergent() +
+  facet_wrap(~ month(time)) +
+  geomcoord_antarctica +
+  geom_antarctica_fill +
+  coord_equal()
+```
+
+```{r}
+cors_sst_era5 <- lapply(1:12, \(month) {
+  cdo_timcor(cdo_selmonth(cdo_selyear(t2m_era5, "1981/2023/1"), month), cdo_selmonth(ice_anom, month)) 
+}) |> 
+  cdo_mergetime() |> 
+  cdo_execute()
+```
+
+```{r}
+# cors_sst_era5 |> 
+#   ReadNetCDF("t2m") |> 
+#   _[t2m != -1] |> 
+#   _[ygrid > 0] |> 
+#   _[t2m > 0] 
+```
+
+```{r}
+
+polygon_area <- function(x, y) {
+  # Ensure the polygon is closed (last point equals first point)
+  if (x[1] != x[length(x)] || y[1] != y[length(y)]) {
+    x <- c(x, x[1])
+    y <- c(y, y[1])
+  }
+  
+  n <- length(x)
+  area <- 0
+  
+  # Apply the Shoelace formula
+  for (i in 1:(n-1)) {
+    area <- area + (x[i] * y[i+1] - x[i+1] * y[i])
+  }
+  
+  # Take absolute value and divide by 2
+  return(abs(area) / 2)
+}
+```
+
+
+```{r}
+positives |> 
+  ggplot(aes(x, y)) +
+  geom_polygon()
+```
+
+```{r}
+contour <- StatContour$compute_group
+positives <- cors_sst_era5 |>
+  ReadNetCDF("t2m") |>
+  _[t2m != -1] |>
+  _[ygrid > 0] |>
+  _[, .(x = xgrid, y= ygrid, z = t2m, time = time)] |>
+  _[month(time) %between% c(5, 10)] |> 
+  _[, contour(.SD, breaks = 0.05), by = time] |> 
+  _[, area := polygon_area(x, y), by= .(group, time)] |> 
+  _[, .SD[area == max(area)], by = .(time)]
+
+
+
+
+
+cors_sst_era5 |>
+  ReadNetCDF("t2m") |>
+  _[t2m != -1] |>
+  # _[month(time) == 7] |> 
+  ggplot(aes(xgrid, ygrid)) +
+  geom_contour_fill(aes(z = t2m)) +
+  # geom_path(data = positives, aes(x, y, group = group)) +
+  scale_fill_divergent() +
+  coord_equal() +
+  annotate("point", x = -1e6, y = 2.3e6, colour = "red") +
+  annotate("point", x = -2.5e6, y = 2.3e6, colour = "red") +
+  # geomcoord_antarctica +
+  geom_antarctica_fill +
+  facet_wrap(~ month(time)) +
+  labs(title = "Correlation between 2-m temperature and sea ice concentration",
+       subtitle = "ERA5 and NSIDC CDRv4")
+
+```
+
+
+```{r}
+library(sf)
+
+
+
+
+point_in_polygon <- function(point_x, point_y, polygon_x, polygon_y) {
+  # Create a simple feature polygon
+  polygon_sf <- sf::st_polygon(list(cbind(polygon_x, polygon_y)))
+  
+  # Create simple feature points
+  points_sf <- sf::st_sfc(sf::st_multipoint(cbind(point_x, point_y)))
+  
+  # Convert to sf objects with the same CRS
+  polygon_sf <- sf::st_sfc(polygon_sf, crs = 4326)
+  points_sf <- sf::st_sfc(points_sf, crs = 4326)
+  
+  # Use st_intersects to check if points are inside the polygon
+  result <- sf::st_intersects(sf::st_cast(points_sf, "POINT"), polygon_sf, sparse = FALSE)
+  
+  return(result[,1])
+}
+```
+
+
+
+
+```{r}
+points <- cors_sst_era5 |>
+  ReadNetCDF("t2m") |>
+  _[t2m != -1] |> 
+  _[month(time) %between% c(5, 10)] |> 
+  st_as_sf(coords = c("xgrid", "ygrid")) |> 
+  dplyr::group_by(time) |> 
+  dplyr::summarise(geometry = st_combine(geometry)) 
+
+
+positives_polygon <- positives |> 
+  st_as_sf(coords = c("x", "y")) |> 
+  dplyr::group_by(time) |> 
+  dplyr::summarise(geometry = st_combine(geometry)) |> 
+  st_cast("POLYGON") 
+
+sf::st_within()
+
+positive_points <- dplyr::left_join(
+  points |> 
+    dplyr::as_tibble(),
+  positives_polygon |> 
+    dplyr::as_tibble(),
+  by = "time") |> 
+  dplyr::mutate(geometry = st_intersection(geometry.y, geometry.x), .by = time) |>
+  dplyr::reframe(as.data.frame(st_coordinates(geometry)), .by  = time) |> 
+  as.data.table() |> 
+  _[, .(month = month(time), xgrid = X, ygrid = Y)]
+
+```
+
+
+```{r}
+bad_place <-  list(xgrid = -1e6, 
+                   ygrid = 2.3e6,
+                   time = c("1981-01-01", "2023-12-01"))
+
+good_place <-  list(xgrid = -2.3e6, 
+                    ygrid = 2.3e6,
+                    time = c("1981-01-01", "2023-12-01"))
+
+
+bad_ice <- rbind(era5 = ice_era5 |> 
+                   ReadNetCDF(c(aice = "siconc"), subset = bad_place) ,
+                 nsicd = CDR_full() |> 
+                   cdo_monmean() |> 
+                   cdo_setday(1) |> 
+                   cdo_execute() |> 
+                   ReadNetCDF(c("aice"), subset = bad_place),
+                 idcol = "dataset")  
+
+good_ice <- rbind(era5 = ice_era5 |> 
+                    ReadNetCDF(c(aice = "siconc"), subset = good_place) ,
+                  nsicd = CDR_full() |> 
+                    cdo_monmean() |> 
+                    cdo_setday(1) |> 
+                    cdo_execute() |> 
+                    ReadNetCDF(c("aice"), subset = good_place),
+                  idcol = "dataset")  
+
+rbind(positive = good_ice, negative = bad_ice, idcol = "location") |> 
+  _[, aice := aice - mean(aice), by = .(location, dataset, month(time))] |> 
+  _[month(time) %in% c(4, 7)] |> 
+  _[, month := lubridate::month(time, label = TRUE)] |> 
+  ggplot(aes(time, aice)) +
+  geom_line(aes(color = dataset)) +
+  facet_wrap(month ~ location, scales = "free")
+
+```
+
+
+```{r}
+
+era5_temp <-  ice_era5 |> 
+  cdo_selyear("1981/2023/1") |> 
+  cdo_execute() |> 
+  cdo_anomalies() |> 
+  cdo_execute()
+
+cdr_temp <- ice_anom
+
+cor_era5_nsidc <- lapply(1:12, \(month) {
+  cdo_timcor(cdo_selmonth(cdr_temp, month), cdo_selmonth(era5_temp, month)) 
+}) |> 
+  cdo_mergetime() |> 
+  cdo_execute()
+
+cor_era5_nsidc |> 
+  ReadNetCDF("aice") |> 
+  _[abs(aice) < 1] |> 
+  _[month(time) %between% c(5, 10)] |> 
+  ggplot(aes(xgrid, ygrid)) +
+  geom_contour_fill(aes(z = aice)) +
+  # geom_path(data = positives, aes(x, y, group = group)) +
+  scale_fill_divergent() +
+  coord_equal() +
+  # annotate("point", x = -1e6, y = 2.3e6, colour = "black",  shape = 21) +
+  # annotate("point", x = -2.5e6, y = 2.3e6, colour = "black", shape = 21) +
+  geomcoord_antarctica +
+  geom_antarctica_fill +
+  facet_wrap(~ month(time)) +
+  labs(title = "Correlation between ERA5 and NSIDC CDRv4 sea ice concentration")
+
+
+
+```
+
+
+```{r}
+cdr_ice <- ice_anom |> 
+  cdo_selmonth("5/10/1") |> 
+  cdo_execute() |> 
+  ReadNetCDF("aice") |> 
+  na.omit() |> 
+  _[, month := month(time)] |> 
+  _[positive_points, on = .NATURAL] |> 
+  _[, .(aice = mean(aice)), by = .(time)]
+
+
+era5_ice <- ice_era5 |> 
+  cdo_selmonth("5/10/1") |> 
+  cdo_execute() |> 
+  ReadNetCDF(c(aice = "siconc")) |> 
+  _[, aice := aice - mean(aice[year(time) >= 1981], na.rm = TRUE), by = .(xgrid, ygrid, month(time))] |> 
+  na.omit() |> 
+  _[, month := month(time)] |> 
+  _[positive_points, on = .NATURAL] |> 
+  _[, .(aice = mean(aice)), by = .(time)]
+
+
+
+```
+
+```{r}
+era5_ice |> 
+  na.omit() |> 
+  ggplot(aes(time, aice)) +
+  geom_line() +
+  geom_line(aes(color = "NSIDC"), data = cdr_ice) +
+  facet_wrap(~ month(time))
+```
+
+```{r}
+
+
+ice_both <- rbind(
+  nsidc = CDR_full() |> 
+    cdo_monmean() |> 
+    cdo_fldmean() |> 
+    cdo_execute() |> 
+    ReadNetCDF("aice") |> 
+    _[, .(time, aice)],
+  era5 = ice_era5 |> 
+    cdo_fldmean() |> 
+    cdo_execute() |> 
+    ReadNetCDF(c(aice = "siconc")) |> 
+    _[, .(time, aice)],
+  idcol = "dataset"
+)
+
+
+```
+
+
+```{r}
+ice_both |> 
+  _[year(time) %between% c(1981, 2023)] |> 
+  _[, aice := Anomaly(aice), by = .(month(time), dataset)] |> 
+  ggplot(aes(time, aice)) +
+  geom_line(aes(color = dataset))
+```
+
+
+```{r}
+cors_sst_era52 <- lapply(1:12, \(month) {
+  cdo_timcor(cdo_selmonth(cdo_selyear(t2m_era5, "1981/2023/1"), month), cdo_selmonth(cdo_selyear(ice_era5, "1981/2023/1"), month)) 
+}) |> 
+  cdo_mergetime() |> 
+  cdo_execute()
+```
+
+```{r}
+cors_sst_era52 |> 
+  ReadNetCDF("t2m") |> 
+  _[t2m != -1] |> 
+  ggplot(aes(xgrid, ygrid)) +
+  geom_contour_fill(aes(z = t2m)) +
+  scale_fill_divergent() +
+  coord_equal() +
+  geomcoord_antarctica +
+  geom_antarctica_fill +
+  facet_wrap(~ month(time)) +
+  labs(title = "Correlation between 2-m temperature and sea ice concentration", 
+       subtitle = "ERA5 and ERA5 ice")
+```
+
+
+```{r}
+cors_tas_cesm2 <- lapply(1:12, \(month) {
+  cdo_timcor(cdo_selmonth(tas_cesm2, month), cdo_selmonth(ice_cesm2, month)) 
+}) |> 
+  cdo_mergetime() |> 
+  cdo_execute()
+```
+
+
+```{r}
+cors_tas_cesm2 |> 
+  ReadNetCDF("tas") |> 
+  _[abs(tas) != 1] |> 
+  ggplot(aes(xgrid, ygrid)) +
+  geom_contour_fill(aes(z = tas)) +
+  scale_fill_divergent() +
+  coord_equal() +
+  geomcoord_antarctica +
+  geom_antarctica_fill +
+  facet_wrap(~ month(time)) +
+  labs(title = "Correation between near-Surface Air Temperature and sea ice concentration.",
+       subtitle = "CESM2 piControl")
+
+```
+
+
+
+```{r}
+
+cors_tas_access <- lapply(1:12, \(month) {
+  cdo_timcor(cdo_selmonth(tas_access, month), cdo_selmonth(ice_access, month)) 
+}) |> 
+  cdo_mergetime() |> 
+  cdo_execute()
+```
+
+
+```{r}
+cors_tas_access |> 
+  ReadNetCDF("tas") |> 
+  _[abs(tas) != 1] |> 
+  ggplot(aes(xgrid, ygrid)) +
+  geom_contour_fill(aes(z = tas)) +
+  scale_fill_divergent() +
+  coord_equal() +
+  geomcoord_antarctica +
+  geom_antarctica_fill +
+  facet_wrap(~ month(time)) +
+  labs(title = "Correation between near-Surface Air Temperature and sea ice concentration.",
+       subtitle = "ACCESS-ESM1.5 piControl")
+
+```

@@ -1,0 +1,1689 @@
+---
+title: "Sea ice growth"
+output: 
+  slidy_presentation: default
+date: "2024-12-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.align = "center",
+  fig.height = 8,
+  fig.width = 12,
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE,
+  cache.extra = 43
+)
+library(metR)
+library(lubridate)
+library(data.table)
+library(ggplot2)
+library(rcdo)
+
+future::plan("multicore", workers = 6)
+
+source(here::here("R/datasets.R"))
+source(here::here("R/ggplot.R"))
+cdo_cache_set("data/cache/ice-growth")
+dir.create("data/cache/ice-growth", showWarnings = FALSE, recursive = TRUE)
+cdo_options_set("-L")
+```
+
+
+```{r era_grid}
+
+era_grid <- "/g/data/rt52/era5/single-levels/monthly-averaged/2t/*/*.nc" |>
+  Sys.glob() |>
+  _[1] |>
+  cdo_samplegrid(4) |>
+  cdo_sellonlatbox(0, 360, -90, -45) |>
+  cdo_seltimestep(1) |>
+  cdo_execute()
+
+
+CDR_ant <- here::here("data/raw/cdr_full.nc")
+
+```
+
+
+```{r}
+
+dir_part <- function(x, n = 1) {
+  while (n > 1) {
+    x <- dirname(x)
+    n <- n - 1
+  }
+  basename(x)
+}
+
+get_model <- function(x) {
+  dir_part(x, 8)
+}
+
+cmip_augment <- function(files) {
+  data.table(file = files, model = get_model(files))
+}
+```
+
+```{r}
+
+files_ice <- "/g/data/oi10/replicas/CMIP6/CMIP/*/*/historical/r1i1p1f1/SImon/siconc/gn/*/*" |>
+  cmip_augment() |>
+  _[model %in% unique(model)[1:3]] |>
+  _[, .N, by = model]
+
+
+file_tas <- "/g/data/oi10/replicas/CMIP6/CMIP/*/*/historical/r1i1p1f1/Amon/tas/gn/*/*" |>
+  cmip_merge()
+```
+
+
+```{r}
+data.table(file = files, model = model) |>
+  _[model %in% unique(model)[1:2]] |>
+  _[, .(file = cdo_mergetime())]
+```
+
+```{r temp_era_full}
+temp_era_full <- here::here("data/derived/era5_temp_antarctic.nc")
+
+temp_era_full <- "/g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc" |>
+  Sys.glob() |>
+  _[-c(1:240)] |>
+  lapply(\(x) {
+    x |>
+      cdo_samplegrid(4) |>
+      cdo_sellonlatbox(0, 360, -90, -45)
+  }) |>
+  cdo_mergetime() |>
+  cdo_execute(output = temp_era_full, options = "-O -b f32")
+```
+
+```{r temp_era5_daily}
+temp_era5_daily <- here::here("data/derived/era5_t2m_daily.nc")
+
+if (!file.exists(temp_era5_daily)) {
+  "/g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc" |>
+    Sys.glob() |>
+    Filter(f = \(x) {
+      as.numeric(basename(dirname(x))) %between% c(1979, 2024)
+    }) |>
+
+    lapply(\(x) {
+      message(basename(x))
+      x |>
+        cdo_samplegrid(4) |>
+        cdo_sellonlatbox(0, 360, -90, -55) |>
+        cdo_selhour(0) |>
+        cdo_execute()
+    }) |>
+    cdo_mergetime() |>
+    cdo_execute(temp_era5_daily, options = "-L -O -b f32")
+}
+
+```
+
+
+```{r sst_era_full}
+
+sst_era_full <- here::here("data/derived/era5_sst_antarctic.nc")
+
+sst_era_full <- "/g/data/rt52/era5/single-levels/monthly-averaged/sst/*/*.nc" |>
+  Sys.glob() |>
+  _[-c(1:240)] |>
+  lapply(\(x) {
+    x |>
+      cdo_samplegrid(4) |>
+      cdo_sellonlatbox(0, 360, -90, -45)
+  }) |>
+  cdo_mergetime() |>
+  cdo_execute(output = sst_era_full, options = "-O -b f32")
+```
+
+```{r era5_daily}
+era5_daily <- here::here("data/raw/era5_t2m_aice.grb")
+
+if (!file.exists(era5_daily)) {
+  request <- list(
+    dataset_short_name = "reanalysis-era5-single-levels",
+    product_type = "reanalysis",
+    variable = c(
+      "2m_temperature",
+      "sea_ice_cover",
+      "seasea_surface_temperature"
+    ),
+    year = as.character(c(1940:2025)),
+    month = c(
+      "01",
+      "02",
+      "03",
+      "04",
+      "05",
+      "06",
+      "07",
+      "08",
+      "09",
+      "10",
+      "11",
+      "12"
+    ),
+    day = c(
+      "01",
+      "02",
+      "03",
+      "04",
+      "05",
+      "06",
+      "07",
+      "08",
+      "09",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22",
+      "23",
+      "24",
+      "25",
+      "26",
+      "27",
+      "28",
+      "29",
+      "30",
+      "31"
+    ),
+    time = "00:00",
+    data_format = "grib",
+    download_format = "unarchived",
+    area = c(-55, 0, -90, 360),
+    target = basename(era5_daily)
+  )
+
+  ecmwfr::wf_request(request, path = dirname(era5_daily))
+}
+
+```
+
+```{r daice_daily}
+sampled <- era5_daily |>
+  cdo_samplegrid(4) |>
+  cdo_sellonlatbox(0, 360, -90, -55) |>
+  cdo_execute(options = "-f nc")
+
+days <- 5
+daice_daily <- merge(
+  CDR_ant |>
+    cdo_selday(days) |>
+    cdo_remapbil(sampled) |>
+    cdo_execute() |>
+    ReadNetCDF(),
+
+  CDR_ant |>
+    cdo_deltat() |>
+    cdo_selday(days + 1) |>
+    cdo_shifttime("-1day") |>
+    cdo_remapbil(sampled) |>
+    cdo_execute() |>
+    ReadNetCDF(c(daice = "aice"))
+)
+
+
+daice_daily <- merge(
+  sampled |>
+    cdo_selday(days) |>
+    cdo_execute() |>
+    ReadNetCDF(c(t2m = "var167")),
+  daice_daily
+) |>
+  _[, t2m := t2m - 273.15]
+
+
+daice_daily <- merge(
+  sampled |>
+    cdo_deltat() |>
+    cdo_selday(days + 1) |>
+    cdo_shifttime("-1day") |>
+    cdo_execute() |>
+    ReadNetCDF(c(dt2m = "var167")),
+  daice_daily
+)
+
+```
+
+
+
+```{r ant_ice-temp_era}
+
+ant_ice <- CDR_ant |>
+  cdo_monmean() |>
+  # cdo_setgrid(grid_file) |>
+  cdo_remapbil(era_grid) |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute()
+
+
+temp_era <- temp_era_full |>
+  ReadNetCDF() |>
+  setnames(c("latitude", "longitude"), c("lat", "lon")) |>
+  _[, dt2m := c(diff(t2m), NA), by = .(lon, lat)]
+
+```
+
+
+```{r daice}
+
+daice <- ant_ice |>
+  ReadNetCDF("aice") |>
+  setnames(c("latitude", "longitude"), c("lat", "lon")) |>
+  _[, daice := c(diff(aice), NA), by = .(lon, lat)] |>
+  _[temp_era[year(time) >= 1981], on = .NATURAL] |>
+  _[year(time) < 2024] |>
+  _[, t2m := t2m - 273.15] |>
+  identity()
+```
+
+
+```{r ar_mask}
+namask <- daice[,
+  .(
+    mean_na = mean(is.na(aice)),
+    mean_ice = mean(aice, na.rm = TRUE),
+    n_valid = sum(!is.na(aice)),
+    var = var(aice, na.rm = TRUE)
+  ),
+  by = .(lon, lat)
+]
+
+ar_mask <- namask[mean_na == 0 & var != 0 & mean_ice > 0.1, .(lon, lat)]
+
+```
+
+
+```{r daice-monthly-scatter}
+daice |>
+  _[year(time) <= 2014] |>
+  # _[ar_mask, on = .NATURAL] |>
+  _[!is.na(daice)] |>
+  _[t2m < 2.5] |>
+  _[t2m > -20] |>
+  _[, month := lubridate::month(time, label = TRUE)] |>
+  # _[month == "Jun"] |>
+  ggplot(aes(aice, t2m)) +
+  # geom_point(data = daice, aes(fill = daice), shape = 21) +
+  scattermore::geom_scattermore(aes(colour = daice), alpha = 0.7) +
+  # scale_color_gradient2("Monthly change in sea ice concentration to the next month") +
+  scale_color_gradient2(
+    "Monthly change in sea ice concentration to the next month"
+  ) +
+  scale_y_continuous("Monthly mean 2-m temperature (°C)") +
+  scale_x_continuous("Monthly mean sea ice concentration") +
+  wide_legend
+```
+
+
+----
+
+
+
+
+```{r model_monthly}
+d <- 5
+model_monthly <- lm(
+  daice ~ poly(t2m, 3, raw = TRUE) * poly(aice, 3, raw = TRUE),
+  data = na.omit(daice),
+  subset = t2m < 1 & aice > 0 & year(time) < 2014
+)
+
+grid_monthly <- CJ(
+  t2m = seq(-20, 5, length.out = 40),
+  aice = seq(0, 1, length.out = 40)
+) |>
+  _[, daice := predict(model_monthly, newdata = .SD)]
+```
+
+
+```{r grid_monthly-plot} 
+grid_monthly |>
+  _[t2m < 2.5] |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = daice)) +
+  geom_contour2(aes(z = daice, label = ..level..)) +
+  # geom_point(data = daice, aes(fill = daice), shape = 21) +
+  # scale_color_gradient2("Monthly change in sea ice concentration to the next month") +
+  scale_fill_gradient2(
+    "Mean monthly change in sea ice concentration to the next month"
+  ) +
+  scale_y_continuous("Monthly mean 2-m temperature (°C)") +
+  scale_x_continuous("Monthly mean sea ice concentration") +
+  wide_legend
+```
+
+----
+
+```{r daice-monthly-hex}
+daice |>
+  _[!is.na(daice)] |>
+  _[t2m > -20] |>
+  _[t2m < 2.5] |>
+  _[, month := lubridate::month(time, label = TRUE)] |>
+  # _[month == "Jun"] |>
+  ggplot(aes(aice, t2m)) +
+  stat_summary_hex(aes(z = daice), fun = \(x) {
+    if (length(x) < 10) {
+      return(NA)
+    }
+    median(x)
+  }) +
+  geom_contour2(
+    data = grid_monthly,
+    aes(z = daice, label = ..level.., linetype = factor(-sign(..level..)))
+  ) +
+  # geom_point(data = daice, aes(fill = daice), shape = 21) +
+  # scale_color_gradient2("Monthly change in sea ice concentration to the next month") +
+  scale_fill_gradient2(
+    "Mean monthly change in sea ice concentration to the next month"
+  ) +
+  scale_y_continuous("Monthly mean 2-m temperature (°C)", limits = c(NA, 2.5)) +
+  scale_x_continuous("Monthly mean sea ice concentration") +
+  scale_linetype(guide = "none") +
+  wide_legend
+```
+
+
+----
+
+```{r daice-monthly-hex-permonth}
+daice |>
+  _[!is.na(daice)] |>
+  _[t2m > -20] |>
+  _[t2m < 2.5] |>
+  _[, month := lubridate::month(time, label = TRUE)] |>
+  # _[month == "Jun"] |>
+  ggplot(aes(aice, t2m)) +
+  stat_summary_hex(aes(z = daice), fun = \(x) {
+    if (length(x) < 10) {
+      return(NA)
+    }
+    median(x)
+  }) +
+  geom_contour2(
+    data = grid_monthly,
+    aes(z = daice, label = ..level.., linetype = factor(-sign(..level..))),
+    breaks = 0
+  ) +
+  # geom_point(data = daice, aes(fill = daice), shape = 21) +
+  # scale_color_gradient2("Monthly change in sea ice concentration to the next month") +
+  scale_fill_gradient2(
+    "Mean monthly change in sea ice concentration to the next month"
+  ) +
+  scale_y_continuous("Monthly mean 2-m temperature (°C)", limits = c(NA, 2.5)) +
+  scale_x_continuous("Monthly mean sea ice concentration") +
+  scale_linetype(guide = "none") +
+  facet_wrap(~month) +
+  annotate("point", x = 0.75, y = -5, shape = 21) +
+  wide_legend
+```
+
+
+----
+
+```{r daice-monthly_boxplot}  
+daice |>
+  na.omit() |>
+  _[abs(t2m - (-5)) <= 1 & abs(aice - 0.75) <= 0.05] |>
+  ggplot(aes(lubridate::month(time, label = TRUE), daice)) +
+  geom_boxplot(aes(group = month(time)))
+
+```
+
+---
+
+
+
+```{r daice_daily-hex}
+d <- 5
+model_daily <- lm(
+  daice ~ poly(t2m, aice, degree = 2, raw = TRUE),
+  data = na.omit(daice_daily),
+  subset = t2m < 1 & t2m > -20 & aice > 0
+)
+
+grid_daily <- CJ(
+  t2m = seq(-40, 5, length.out = 40),
+  aice = seq(0, 1, length.out = 40)
+) |>
+  _[, daice := predict(model_daily, newdata = .SD)]
+
+daice_daily |>
+  na.omit() |>
+  _[t2m < 2.5] |>
+  # _[daice < 1] |>
+  # _[t2m > -20] |>
+  _[, month := lubridate::month(time, label = TRUE)] |>
+  # _[month == "Jun"] |>
+  # _[month(time) == 10] |>
+  ggplot(aes(aice, t2m)) +
+  stat_summary_hex(aes(z = daice), fun = \(x) {
+    if (length(x) < 10) {
+      return(NA)
+    }
+    mean(x)
+  }) +
+  geom_contour2(
+    data = grid_daily,
+    aes(z = daice, label = ..level.., linetype = factor(-sign(..level..))),
+  ) +
+  # scale_color_gradient2("Monthly change in sea ice concentration to the next month") +
+  scale_fill_gradient2(
+    "Daily change in sea ice concentration to the next day"
+  ) +
+  scale_y_continuous("Daily mean 2-m temperature (°C)") +
+  scale_x_continuous("Daily mean sea ice concentration") +
+  scale_linetype(NULL, guide = "none") +
+  wide_legend
+```
+
+
+---
+
+```{r daice_daily-hex-permonth}
+
+daice_daily |>
+  na.omit() |>
+  # _[t2m < 2.5] |>
+  # _[daice < 1] |>
+  # _[t2m > -20] |>
+  _[, month := lubridate::month(time, label = TRUE)] |>
+  # _[month == "Jun"] |>
+  # _[month(time) == 10] |>
+  ggplot(aes(aice, t2m)) +
+  stat_summary_hex(aes(z = daice), fun = \(x) {
+    if (length(x) < 10) {
+      return(NA)
+    }
+    mean(x)
+  }) +
+  geom_contour2(
+    data = grid_daily,
+    aes(z = daice, linetype = factor(-sign(..level..))),
+    breaks = 0
+  ) +
+  # scale_color_gradient2("Monthly change in sea ice concentration to the next month") +
+  scale_fill_gradient2(
+    "Daily change in sea ice concentration to the next day"
+  ) +
+  scale_y_continuous("Daily mean 2-m temperature (°C)") +
+  scale_x_continuous("Daily mean sea ice concentration") +
+  scale_linetype(NULL, guide = "none") +
+  facet_wrap(~month) +
+  wide_legend
+```
+
+
+<!-- ```{r} -->
+<!-- last_plot() %+%  -->
+<!-- daice_daily |>  --> 
+<!--      na.omit() |>  -->
+<!--      _[month(time) %in% 7:9] |>  -->
+<!--      _[, month := lubridate::month(time, label = TRUE)]) -->
+<!-- ``` -->
+
+```{r mask}
+mask <- daice_daily[, mean(is.na(aice)), by = .(lon, lat)][V1 < 1][,
+  V1 := NULL
+][]
+```
+
+
+<!-- ```{r daily-cold-melt} -->
+<!-- daice_daily |>  -->
+<!--   _[mask, on = .NATURAL] |>  -->
+<!--   _[month(time) %in% 5:9] |>  -->
+<!--   _[, mean(t2m < -30 & daice < 0, na.rm = TRUE), by = .(lon, lat, month(time))] |>  -->
+<!--   ggplot(aes(lon, lat)) + -->
+<!--   geom_contour_fill(aes(z = V1)) + -->
+<!--   scale_fill_viridis_c() + -->
+<!--   facet_wrap(~ month)  -->
+
+
+<!-- ``` -->
+
+
+```{r topo}
+topo <- cdo_topo(grid = CDR_grid()) |>
+  cdo_execute(options = "-f nc") |>
+  ReadNetCDF()
+
+proj <- "+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=6378273 +b=6356889.449 +units=m +no_defs"
+```
+
+```{r mean-bias}
+mask <- daice_daily[, mean(aice == 0 | is.na(aice)), by = .(lon, lat)][
+  V1 < 0.8
+][, V1 := NULL][]
+
+daice_daily |>
+  copy() |>
+  _[mask, on = .NATURAL] |>
+  _[, predict := predict(model_daily, newdata = .SD)] |>
+  _[,
+    .(
+      error = mean(predict - daice, na.rm = TRUE),
+      aice = mean(aice, na.rm = TRUE)
+    ),
+    by = .(lon, lat, month = lubridate::month(time, label = TRUE))
+  ] |>
+  _[abs(error) < 0.1] |>
+  # ggperiodic::periodic(lon = c(0, 360)) |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(aes(z = error), proj = proj, proj.latlon = FALSE) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  geom_contour2(
+    aes(z = aice),
+    breaks = 0.8,
+    color = "red",
+    proj = proj,
+    proj.latlon = FALSE
+  ) +
+  scale_fill_viridis_c() +
+  scale_fill_gradient2("Mean model bias") +
+  facet_wrap(~month) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal()
+```
+
+
+
+
+
+----
+
+
+```{r}
+months <- formatC(1:12, width = 2, flag = "0")
+years <- 1982:2024
+forecast_tas <- CJ(month = months, year = years) |>
+  _[,
+    file := glue::glue_data(
+      .SD,
+      "/g/data/ux62/access-s2/hindcast/raw_model/atmos/tas/monthly/e01/ma_tas_{year}{month}01_e01.nc"
+    )
+  ] |>
+  _[file.exists(file)] |>
+  _[order(year, month)] |>
+  _[,
+    file |>
+      cdo_selmonth(as.numeric(month)) |>
+      cdo_remapbil(era_grid) |>
+      cdo_execute(options = "-w -s -L", cache = TRUE),
+    by = .(year, month)
+  ]
+
+forecast_tas <- forecast_tas$V1 |>
+  cdo_mergetime() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF(c(t2m = "tas")) |>
+  setnames(c("longitude", "latitude"), c("lon", "lat")) |>
+  _[mask, on = .NATURAL] |>
+  _[, t2m := t2m - 273.15]
+
+```
+
+
+```{r forecast_temp}
+forecast <- CJ(month = months, year = years) |>
+  _[,
+    file := glue::glue_data(
+      .SD,
+      "~/access-s2_ice-eval/data/derived/hindcast/aice/S2/{year}-{month}-01/01.nc"
+    )
+  ] |>
+  _[file.exists(file)] |>
+  _[,
+    file |>
+      cdo_selmonth(as.numeric(month)) |>
+      cdo_monmean() |>
+      cdo_remapbil(era_grid) |>
+      cdo_execute(options = "-s -L", cache = TRUE),
+    by = .(year, month)
+  ] |>
+  _[order(year, month)]
+```
+
+```{r forecast_data} 
+forecast_data <- forecast$V1 |>
+  cdo_mergetime() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("aice") |>
+  setnames(c("longitude", "latitude"), c("lon", "lat")) |>
+  _[mask, on = .NATURAL]
+```
+
+
+```{r interpolate_cpp}
+Rcpp::sourceCpp("analysis/random/interpolate_cpp.cpp")
+```
+
+
+
+```{r era_temp_fun}
+era_temp_fun <- function(data) {
+  t2m_matrix <- data[, .(time, lon, lat, t2m)] |>
+    metR:::.tidy2matrix(lon + lat ~ time, value.var = "t2m") |>
+    _$matrix
+  t2m_time <- 0:(ncol(t2m_matrix) - 1)
+
+  function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
+}
+
+```
+
+```{r}
+era_temp_fun_back <- function(data) {
+  t2m_matrix <- data[, .(time, lon, lat, t2m)] |>
+    metR:::.tidy2matrix(lon + lat ~ time, value.var = "t2m") |>
+    _$matrix
+  t2m_time <- rev(0:(ncol(t2m_matrix) - 1))
+
+  function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
+}
+
+```
+
+
+```{Rcpp poly_interactions_cpp}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+NumericMatrix poly_interactions_cpp(NumericVector x1, NumericVector x2, int degree) {
+  int n = x1.size();
+  if(n != x2.size()) {
+    Rcpp::stop("x1 and x2 must have the same length");
+  }
+  
+  // Calculate total number of columns:
+  // 1 (intercept) + degree (x1 terms) + degree (x2 terms) + degree*degree (interactions)
+  int total_cols = 1 + degree + degree + degree * degree;
+  NumericMatrix result(n, total_cols);
+  
+  int col_idx = 0;
+  
+  // Column 1: Intercept
+  for(int i = 0; i < n; i++) {
+    result(i, col_idx) = 1.0;
+  }
+  col_idx++;
+  
+  // Build polynomial matrices for both variables
+  NumericMatrix poly1(n, degree);
+  NumericMatrix poly2(n, degree);
+  
+  // Fill polynomial matrices efficiently
+  for(int i = 0; i < n; i++) {
+    double x1_val = x1[i];
+    double x2_val = x2[i];
+    double x1_power = x1_val;
+    double x2_power = x2_val;
+    
+    for(int j = 0; j < degree; j++) {
+      poly1(i, j) = x1_power;
+      poly2(i, j) = x2_power;
+      x1_power *= x1_val;
+      x2_power *= x2_val;
+    }
+  }
+  
+  // Add x1 polynomial terms
+  for(int j = 0; j < degree; j++) {
+    for(int i = 0; i < n; i++) {
+      result(i, col_idx) = poly1(i, j);
+    }
+    col_idx++;
+  }
+  
+  // Add x2 polynomial terms
+  for(int j = 0; j < degree; j++) {
+    for(int i = 0; i < n; i++) {
+      result(i, col_idx) = poly2(i, j);
+    }
+    col_idx++;
+  }
+  
+  // Add all interactions (x1^i * x2^j for i,j = 1 to degree)
+  for(int j2 = 0; j2 < degree; j2++) {        // x2 powers
+    for(int j1 = 0; j1 < degree; j1++) {      // x1 powers
+      for(int i = 0; i < n; i++) {
+        result(i, col_idx) = poly1(i, j1) * poly2(i, j2);
+      }
+      col_idx++;
+    }
+  }
+  
+  return result;
+}
+```
+
+
+
+```{r d_ice}
+d_ice <- function(coefs, inflation = 1) {
+  force(coefs)
+  force(inflation)
+  function(state, time, forcing) {
+    t2m <- forcing(time)
+    x <- poly_interactions_cpp(t2m, state, 3)
+
+    d_ice <- as.vector(coefs %*% t(x)) * inflation
+
+    d_ice <- fifelse(state >= 1 & d_ice > 0, 0, d_ice)
+    d_ice <- fifelse(state <= 0 & d_ice < 0, 0, d_ice)
+    d_ice
+  }
+}
+```
+
+
+```{r d_ice_back}
+d_ice_back <- function(coefs) {
+  force(coefs)
+  function(state, time, forcing) {
+    t2m <- forcing(time)
+    x <- poly_interactions_cpp(t2m, state, 3)
+
+    d_ice <- -as.vector(coefs %*% t(x))
+
+    d_ice <- fifelse(state >= 1 & d_ice > 0, 0, d_ice)
+    d_ice <- fifelse(state <= 0 & d_ice < 0, 0, d_ice)
+    d_ice
+  }
+}
+```
+
+
+```{r rk4}
+rk4 <- function(model, state, time, forcing, dt) {
+  k1 <- model(state = state, time = time, forcing = forcing)
+  k2 <- model(
+    state = state + k1 * dt / 2,
+    time = time + dt / 2,
+    forcing = forcing
+  )
+  k3 <- model(
+    state = state + k2 * dt / 2,
+    time = time + dt / 2,
+    forcing = forcing
+  )
+  k4 <- model(state = state + k3 * dt, time = time + dt, forcing = forcing)
+
+  state <- state + (k1 + 2 * k2 + 2 * k3 + k4) * dt / 6
+
+  state
+}
+```
+
+```{r evolve}
+evolve_ <- function(
+  start,
+  model,
+  start_time,
+  end_time,
+  dt,
+  method = rk4,
+  forcing
+) {
+  time <- seq(start_time, end_time, by = dt)
+  N <- length(time)
+
+  grid <- start[, .(lon, lat)]
+  history <- lapply(time, \(t) copy(grid)[, time := t])
+
+  history[[1]]$aice <- start$aice
+  for (n in seq_len(N - 1)) {
+    history[[n + 1]]$aice <- method(
+      model,
+      history[[n]]$aice,
+      time[n],
+      forcing,
+      dt
+    )
+  }
+
+  history <- data.table::rbindlist(history)
+}
+
+evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
+```
+
+
+```{r mask2}
+mask <- daice[, mean(is.na(aice)), by = .(lon, lat)][V1 < 1][, V1 := NULL]
+```
+
+
+```{r sim1}
+time_translate <- daice |>
+  copy() |>
+  _[, t := 0:(.N - 1), by = .(lon, lat)] |>
+  _[, .(t, time)] |>
+  unique()
+
+
+times <- seq(0, uniqueN(daice$time) - 1)
+start <- daice[time == time[1]] |>
+  _[mask, on = .NATURAL]
+forcing_temp <- era_temp_fun(daice[start[, .(lon, lat)], on = c("lon", "lat")])
+d_ice_fun <- d_ice(coef(model_monthly))
+
+time_fun <- time_translate[, approxfun(t, time)]
+# rnorm(length(coef(model_monthly)))
+sim1 <- evolve(
+  start = start,
+  model = d_ice(coef(model_monthly), inflation = 1),
+  start_time = min(times),
+  end_time = max(times),
+  dt = 1 / 31,
+  forcing = forcing_temp
+) |>
+  _[time == as.integer(time)] |>
+  _[, time := as.POSIXct(time_fun(time))]
+```
+
+```{r sim_forecast} 
+start_time_forecast <- forecast_tas[1, time]
+times <- seq(0, uniqueN(forecast_tas$time) - 1)
+
+start <- daice[time == start_time_forecast] |>
+  _[mask, on = .NATURAL]
+forcing_temp <- era_temp_fun(forecast_tas[
+  start[, .(lon, lat)],
+  on = c("lon", "lat")
+])
+
+sim_forecast <- evolve(
+  start = start,
+  model = d_ice(coef(model_monthly)),
+  start_time = min(times),
+  end_time = max(times),
+  dt = 1 / 31,
+  forcing = forcing_temp
+)
+
+time_translate <- forecast_tas |>
+  copy() |>
+  _[, t := 0:(.N - 1), by = .(lon, lat)] |>
+  _[, .(t, time)] |>
+  unique()
+
+
+time_fun <- time_translate[, approxfun(t, time)]
+sim_forecast <- sim_forecast |>
+  _[time == as.integer(time)] |>
+  _[, time := as.POSIXct(time_fun(time))]
+
+```
+
+```{r forecast}
+months <- formatC(1:12, width = 2, flag = "0")
+years <- 1982:2024
+
+forecast <- CJ(month = months, year = years) |>
+  _[,
+    file := glue::glue_data(
+      .SD,
+      "~/access-s2_ice-eval/data/derived/hindcast/S2/{year}-{month}-01/01.nc"
+    )
+  ] |>
+  _[file.exists(file)] |>
+  _[,
+    file |>
+      cdo_selmonth(as.numeric(month)) |>
+      cdo_monmean() |>
+      cdo_remapbil(era_grid) |>
+      cdo_execute(options = "-s -L"),
+    by = .(year, month)
+  ] |>
+  _[order(year, month)]
+```
+
+```{r forecast_data} 
+forecast_data <- forecast$V1 |>
+  cdo_mergetime() |>
+  cdo_setday(1) |>
+  cdo_settime("00:00:00") |>
+  cdo_execute() |>
+  ReadNetCDF("aice") |>
+  setnames(c("longitude", "latitude"), c("lon", "lat")) |>
+  _[mask, on = .NATURAL]
+```
+
+```{r sim_obs, include=FALSE}
+
+sim <- rbind(
+  sim = sim1[, .(time, lon, lat, value = aice)],
+  obs = daice[, .(time, lon, lat, value = aice)],
+  S2 = forecast_data[, .(time, lon, lat, value = aice)],
+  sim_forecast = sim_forecast[, .(time, lon, lat, value = aice)],
+  idcol = "variable"
+) |>
+  _[year(time) > 1981] |>
+  na.omit()
+```
+
+
+## Integrating this model
+
+
+$$
+\frac{dC_{ij}}{dt} = f(C_{ij}, T_{ij})
+$$
+
+Where $C_{ij}$ is sea ice concentration in gridpoint $ij$, $T_{ij}$ is the t2m temperature in gridpoint $ij$ and $f$ is the polynomial fit on monthly values. $T$ comes from ERA5. 
+
+---
+
+
+
+
+```{r sim-aice-anomalies}
+sim |>
+  # _[year(time) > 1981] |>
+  copy() |>
+  # _[lat > -75] |>
+  _[,
+    value := value - mean(value, na.rm = TRUE),
+    by = .(lon, lat, variable, month(time))
+  ] |>
+  _[time %in% unique(time)[c(210, 360, 400, 460)]] |>
+  # ggperiodic::periodic(lon = c(0, 360)) |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(
+    aes(z = value),
+    proj = proj,
+    proj.latlon = FALSE,
+    breaks = AnchorBreaks(exclude = 0)
+  ) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  scale_fill_gradient2("Sea ice concentration anomaly") +
+  facet_grid(variable ~ time) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal() +
+  wide_legend
+
+```
+
+---
+
+```{r sim-aice-anomalies-std}
+sim |>
+  _[year(time) > 1981] |>
+  copy() |>
+  # _[lat > -75] |>
+  _[,
+    value := value - mean(value, na.rm = TRUE),
+    by = .(lon, lat, variable, month(time))
+  ] |>
+  _[time %in% unique(time)[c(210, 360, 400, 460)]] |>
+  _[, value := value / sd(value, na.rm = TRUE), by = .(variable, time)] |>
+  ggperiodic::periodic(lon = c(0, 360)) |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(
+    aes(z = value),
+    proj = proj,
+    proj.latlon = FALSE,
+    breaks = AnchorBreaks(exclude = 0)
+  ) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  scale_fill_gradient2("Sea ice concentration anomaly (standardised)") +
+  facet_grid(variable ~ time) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal() +
+  wide_legend
+
+```
+
+---
+
+```{r sim-seasonal-cycle}
+sim |>
+  _[year(time) > 1981] |>
+  _[lat < -55 & lat > -76] |>
+  _[,
+    .(aice = mean(value, na.rm = TRUE)),
+    by = .(time = update(time, year = 2000), lat, variable)
+  ] |>
+  # _[year(time) == 2000] |>
+  ggplot(aes(time, aice)) +
+  geom_line(aes(color = variable)) +
+  facet_wrap(~lat, scales = "free_y") +
+  scale_x_datetime(date_breaks = "2 month", date_labels = "%b") +
+  scale_color_brewer(NULL, palette = "Set1") +
+  scale_y_continuous("Mean sea ice concentration")
+
+```
+
+
+---
+
+
+```{r mean_aice}
+mean_aice <- sim |>
+  _[year(time) > 1981] |>
+  _[,
+    .(mean_aice = weighted.mean(value, w = cos(lat * pi / 180), na.rm = TRUE)),
+    by = .(variable, time)
+  ] |>
+  _[,
+    mean_aice_a := mean_aice - mean(mean_aice, na.rm = TRUE),
+    by = .(variable, month(time))
+  ]
+```
+
+
+```{r seaosnal_cycle-mean_aice}
+mean_aice |>
+  _[, mean(mean_aice, na.rm = TRUE), by = .(variable, month(time))] |>
+  ggplot(aes(month, V1)) +
+  geom_line(aes(color = variable))
+```
+
+
+---
+
+```{r sim-sd}
+sim |>
+  _[month(time) %in% c(2, 9)] |>
+  _[, sd(value, na.rm = TRUE), by = .(lon, lat, month(time), variable)] |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(aes(z = V1), proj = proj, proj.latlon = FALSE) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  scale_fill_viridis_c("Sea ice concentration standard deviation") +
+  facet_grid(month ~ variable) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal() +
+  wide_legend
+
+```
+
+---
+
+
+```{r sim_seasonal_cycle}
+sim_seasonal_cycle <- sim |>
+  _[,
+    .(value = mean(value, na.rm = TRUE)),
+    by = .(lon, lat, variable, month(time))
+  ] |>
+  _[, base := value[variable == "obs"], by = .(lon, lat, month)] |>
+  _[variable != "obs"]
+```
+
+
+```{r fig-sim_seasonal_cycle}
+sim_seasonal_cycle |>
+  _[month %in% c(2, 9)] |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(
+    aes(z = value - base, fill = ..level..),
+    proj = proj,
+    breaks = AnchorBreaks(exclude = 0),
+    proj.latlon = FALSE
+  ) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  scale_fill_divergent_discretised("Sea ice concentration bias") +
+  facet_grid(month ~ variable) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal() +
+  wide_legend
+
+```
+
+---
+
+```{r}
+cor_lonlat <- sim |>
+  copy() |>
+  _[value <= 0.15, value := NA] |>
+  _[,
+    value := value - mean(value, na.rm = TRUE),
+    by = .(lon, lat, month(time), variable)
+  ] |>
+  _[, base := value[variable == "obs"], by = .(lon, lat, time)] |>
+  _[variable != "obs"] |>
+  na.omit() |>
+  _[, cor(value, base, use = "complete.obs"), by = .(lon, lat, variable)]
+
+max_cor <- cor_lonlat[variable == "sim" & V1 < 0.7][order(-V1)][1, .(lon, lat)]
+
+
+sim |>
+  # _[variable %in% c("S2", "sim_forecast")] |>
+  _[max_cor, on = .NATURAL] |>
+  _[,
+    value := value - mean(value, na.rm = TRUE),
+    by = .(lon, lat, month(time), variable)
+  ] |>
+  widyr::pairwise_cor(variable, time, value) |>
+  ggplot(aes(item1, item2)) +
+  geom_raster(aes(fill = correlation)) +
+  geom_text(aes(label = scales::number(correlation)))
+
+
+ggplot(aes(time, value)) +
+  geom_line(aes(color = variable))
+
+```
+
+
+
+
+
+```{r sim-cor}
+cor_lonlat <- sim |>
+  copy() |>
+  _[, base := value[variable == "obs"], by = .(lon, lat, time)] |>
+  _[variable != "obs"] |>
+  na.omit() |>
+  _[,
+    cor(value, base, use = "complete.obs"),
+    by = .(lon, lat, month(time), variable)
+  ]
+
+
+cor_lonlat |>
+  _[month %in% c(2, 9)] |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(aes(z = V1), proj = proj, proj.latlon = FALSE) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  scale_fill_divergent("Sea ice concentration correlation") +
+  facet_grid(month ~ variable) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal() +
+  wide_legend
+
+```
+
+---
+
+```{r mean-cor}
+cor_lonlat |>
+  ar_mask[i = _, on = .NATURAL] |>
+  _[,
+    weighted.mean(V1, w = cos(lat * pi / 180), na.rm = TRUE),
+    by = .(month, variable)
+  ] |>
+  ggplot(aes(month, V1)) +
+  geom_line(aes(color = variable)) +
+  scale_y_continuous("Mean spatial correlation") +
+  scale_x_continuous(breaks = 1:12, labels = month.abb)
+```
+
+---
+
+```{r ccf}
+
+ccf_df <- function(x, y, ...) {
+  x <- ccf(x, y, ..., na.action = na.pass, plot = FALSE)
+
+  list(cor = x$acf[, 1, 1], lag = x$lag[, 1, 1])
+}
+
+
+aice_sim_ccf <- sim |>
+  copy() |>
+  _[,
+    value := value - mean(value, na.rm = TRUE),
+    by = .(lon, lat, variable, month(time))
+  ] |>
+  _[, base := value[variable == "obs"], by = .(lon, lat, time)] |>
+  _[variable != "obs"] |>
+  _[, ccf_df(value, base), by = .(lon, lat, variable)]
+
+```
+
+```{r fig-ccf}
+aice_sim_ccf |>
+  _[ar_mask, on = .NATURAL] |>
+  _[, .SD[which.max(cor)], by = .(lon, lat, variable)] |>
+  ggplot(aes(lon, lat)) +
+  geom_raster(aes(fill = lag)) +
+  scale_fill_divergent(
+    "Lag of max correlation (negative means simulation leads observations)",
+    limits = c(-2, 2),
+    oob = scales::oob_squish
+  ) +
+  scale_y_latitude(ticks = 5) +
+  scale_x_longitude() +
+  facet_wrap(~variable, ncol = 1) +
+  wide_legend
+```
+
+---
+
+```{r area_cor}
+area_cor <- mean_aice |>
+  _[, base := mean_aice_a[variable == "obs"], by = .(time)] |>
+  _[variable != "obs"] |>
+  _[, cor(mean_aice_a, base), by = variable]
+```
+
+```{r sim-area-anomalies}
+cor_text <- area_cor[, paste0(variable, "=", scales::number(V1))] |>
+  paste0(collapse = "\n")
+
+mean_aice |>
+  ggplot(aes(time, mean_aice_a)) +
+  geom_line(aes(color = variable)) +
+  scale_y_continuous("Mean sea ice concentration anomaly") +
+  annotate(
+    "text",
+    label = cor_text,
+    x = as.POSIXct(-Inf),
+    y = Inf,
+    size = 6,
+    hjust = -0.2,
+    vjust = 1.2
+  ) +
+  scale_color_brewer(NULL, palette = "Set1")
+```
+
+
+---
+
+
+```{r cell_area}
+cell_area <- era_grid |>
+  cdo_gridarea() |>
+  cdo_execute() |>
+  ReadNetCDF("cell_area") |>
+  setnames(c("longitude", "latitude"), c("lon", "lat"))
+```
+
+```{r extent_aice}
+
+extent_aice <- sim |>
+  _[year(time) > 1981] |>
+  _[value > 0.15] |>
+  cell_area[i = _, on = .NATURAL] |>
+  _[, .(mean_aice = sum(cell_area)), by = .(variable, time)] |>
+  _[,
+    mean_aice_a := mean_aice - mean(mean_aice, na.rm = TRUE),
+    by = .(variable, month(time))
+  ]
+```
+
+```{r extent_aice-plot}
+area_cor <- extent_aice |>
+  _[, base := mean_aice_a[variable == "obs"], by = .(time)] |>
+  _[variable != "obs"] |>
+  _[,
+    .(cor = cor(mean_aice_a, base), rmse = sqrt(mean((mean_aice_a - base)^2))),
+    by = variable
+  ]
+
+cor_text <- area_cor[, paste0(variable, "=", scales::number(cor))] |>
+  paste0(collapse = "\n")
+
+rmse_text <- area_cor[, paste0(
+  variable,
+  "=",
+  scales::number(rmse / 1e12),
+  "Mkm^2"
+)] |>
+  paste0(collapse = "\n")
+
+
+extent_aice |>
+  ggplot(aes(time, mean_aice_a / 1e12)) +
+  geom_line(aes(color = variable)) +
+  scale_y_continuous("Mean sea ice extent anomaly") +
+  annotate(
+    "text",
+    label = cor_text,
+    x = as.POSIXct(-Inf),
+    y = Inf,
+    size = 6,
+    hjust = -0.2,
+    vjust = 1.2
+  ) +
+  annotate(
+    "text",
+    label = rmse_text,
+    x = as.POSIXct(-Inf),
+    y = -Inf,
+    size = 6,
+    hjust = -0.2,
+    vjust = -1.2
+  ) +
+  scale_color_brewer(NULL, palette = "Set1")
+```
+
+---
+
+
+```{r}
+timecor <- sim |>
+  copy() |>
+  _[,
+    value_a := value - mean(value, na.rm = TRUE),
+    by = .(lon, lat, variable, month(time))
+  ] |>
+  _[, base := value_a[variable == "obs"], by = .(lon, lat, time)] |>
+  _[variable != "obs"] |>
+  _[,
+    .(correlation = cor(value, base, use = "complete.obs")),
+    by = .(time, variable)
+  ]
+```
+
+
+
+```{r}
+timecor |>
+  copy() |>
+  _[, correlation := frollmean(correlation, n = 12 * 5), by = .(variable)] |>
+  ggplot(aes(time, correlation)) +
+  geom_line(aes(color = variable))
+```
+
+
+<!-- ---- -->
+
+<!-- ```{r} -->
+<!-- sim |>  -->
+<!--   copy() |>  -->
+<!--   _[lat > -75] |>  -->
+<!--   _[, value := value - mean(value, na.rm = TRUE), by = .(lon, lat, variable, month(time))] |>  -->
+<!--   _[, cor(value[variable == "obs"], value[variable == "sim"]), by = .(time)] |>  -->
+<!--   _[year(time) > 1981] |>  -->
+<!--   ggplot(aes(time, V1)) + -->
+<!--   geom_line() -->
+<!-- ``` -->
+
+
+
+
+```{r, cache = FALSE}
+knitr::knit_exit()
+```
+
+```{r}
+time_translate_daily <- daice_daily |>
+  copy() |>
+  _[, t := 0:(.N - 1), by = .(lon, lat)] |>
+  _[, .(t, time)] |>
+  unique()
+
+```
+
+
+```{r}
+lons <- JumpBy(unique(daice_daily$lon), 20)
+lat <- JumpBy(unique(daice_daily$lat), 1)
+
+ant_day <- CDR_ant |>
+  cdo_remapbil(sampled) |>
+  cdo_execute() |>
+  ReadNetCDF(subset = list(lon = as.list(lons), lat = as.list(lat))) |>
+  _[, time := as.Date(time)] |>
+  _[year(time) >= 1990]
+```
+
+```{r}
+mask_sim <- ant_day[, mean(is.na(aice)), by = .(lon, lat)][V1 < 1]
+```
+
+```{r}
+ant_day |>
+  _[time == unique(time)[1]] |>
+  na.omit() |>
+  ggplot(aes(lon, lat)) +
+  geom_point()
+```
+
+
+```{r}
+t2daily <- sampled |>
+  ReadNetCDF(
+    c(t2m = "var167"),
+    subset = list(lon = as.list(lons), lat = as.list(lat))
+  ) |>
+  _[time >= ant_day$time[1]]
+```
+
+```{r}
+
+era_temp_approx_daily <- t2daily |>
+  copy() |>
+  _[, t := 0:(.N - 1), by = .(lon, lat)] |>
+  _[, t2m := t2m - 273.15] |>
+  split(by = c("lon", "lat")) |>
+  lapply(\(x) x[, .(fun = list(approxfun(t, t2m))), by = .(lon, lat)]) |>
+  rbindlist()
+
+era_temp_fun_daily <- function(lon, lat) {
+  w_lon <- lon
+  w_lat <- lat
+  era_temp_approx_daily[lon == w_lon & lat == w_lat, fun[[1]]]
+}
+
+```
+
+```{r}
+d_ice_daily <- function(t2m, aice) {
+  daice <- sum(coef(model_daily) * c(1, aice, aice^2, t2m, t2m * aice, t2m^2))
+
+  if (aice >= 1 & daice > 0) {
+    daice <- 0
+  }
+  if (aice <= 0 & daice < 0) {
+    daice <- 0
+  }
+
+  daice
+}
+
+
+```
+
+```{r}
+sim_daily <- ant_day |>
+  _[time == time[1]] |>
+  _[mask_sim, on = .NATURAL] |>
+  # _[lat == lat[1]] |>
+  # _[lon == lon[1]] |>
+  _[,
+    run_ice_simple(
+      0:12900,
+      ice_start = aice,
+      temp_fun = era_temp_fun_daily(lon, lat),
+      d_ice = d_ice_daily
+    ),
+    by = .(lon, lat)
+  ] |>
+  _[, time := as.Date(time, origin = t2daily$time[1])]
+```
+
+
+```{r}
+sim_daily |>
+  copy() |>
+  setnames("aice", "sim") |>
+  ant_day[i = _, on = c("lon", "lat", "time")] |>
+  _[time > unique(time)[60]] |>
+  melt(id.vars = c("lon", "lat", "time")) |>
+  _[, mean(value, na.rm = TRUE), by = .(variable, time)] |>
+  # _[, mean(V1, na.rm = TRUE), by = .(variable, time = lubridate::floor_date(time, "month"))] |>
+  _[, V1 := V1 - mean(V1, na.rm = TRUE), by = .(variable, month(time))] |>
+  ggplot(aes(time, V1)) +
+  geom_line(aes(color = variable))
+```
+
+```{r}
+sim_daily |>
+  copy() |>
+  setnames("aice", "sim") |>
+  ant_day[i = _, on = c("lon", "lat", "time")] |>
+  _[time > unique(time)[60]] |>
+  melt(id.vars = c("lon", "lat", "time")) |>
+  _[, mean(value, na.rm = TRUE), by = .(variable, time)] |>
+  _[, mean(V1, na.rm = TRUE), by = .(variable, yday(time))] |>
+  ggplot(aes(yday, V1)) +
+  geom_line(aes(color = variable))
+```
+
+```{r}
+sim_daily |>
+  copy() |>
+  setnames("aice", "sim") |>
+  ant_day[i = _, on = c("lon", "lat", "time")] |>
+  _[time > unique(time)[60]] |>
+  melt(id.vars = c("lon", "lat", "time")) |>
+  _[time == time[1]] |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(aes(z = value), proj = proj, proj.latlon = FALSE) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  # geom_contour2(aes(z = aice), breaks = 0.8, color = "red", proj = proj, proj.latlon = FALSE) +
+  scale_fill_viridis_c() +
+  # scale_fill_gradient2() +
+  facet_grid(. ~ variable) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal()
+```
+
+
+
+```{r}
+sim_daily |>
+  copy() |>
+  setnames("aice", "sim") |>
+  ant_day[i = _, on = c("lon", "lat", "time")] |>
+  _[time > unique(time)[60]] |>
+  _[,
+    .(error = mean((aice - sim)^2, na.rm = TRUE)),
+    by = .(lon, lat, month(time))
+  ] |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(aes(z = error), proj = proj, proj.latlon = FALSE) +
+  geom_contour2(data = topo, aes(xgrid, ygrid, z = topo), breaks = 0) +
+  # geom_contour2(aes(z = aice), breaks = 0.8, color = "red", proj = proj, proj.latlon = FALSE) +
+  scale_fill_viridis_c() +
+  # scale_fill_gradient2() +
+  facet_wrap(~month) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_equal()
+```
+
+
+```{r}
+eofs <- sim |>
+  copy() |>
+  # _[lat > -75] |>
+  _[,
+    value := value - mean(value, na.rm = TRUE),
+    by = .(lon, lat, variable, month(time))
+  ] |>
+  _[, .(eof = list(EOF(value ~ lon + lat | time, n = 1:10))), by = .(variable)]
+```
+
+
+```{r}
+eofs[, eof[[1]]$left, by = variable] |>
+  _[PC %in% c("PC2", "PC7")] |>
+  ggperiodic::periodic(lon = c(0, 360)) |>
+  ggplot(aes(lon, lat)) +
+  geom_contour_fill(aes(z = value)) +
+  # geom_contour2(data = topo, aes(z = topo), breaks = 0) +
+  scale_fill_gradient2() +
+  facet_grid(PC ~ variable) +
+  coord_polar() +
+  scale_y_continuous(limits = c(-90, NA)) +
+  scale_x_continuous(limits = c(0, 360))
+```
+
+
+```{r}
+eofs[, eof[[1]]$sdev, by = variable] |>
+  ggplot(aes(PC, r2)) +
+  geom_line(aes(group = variable, color = variable))
+```
+
+```{r}
+area <- sim |>
+  _[variable == "obs"] |>
+  copy() |>
+  _[, value := Anomaly(value, na.rm = TRUE), by = .(lon, lat, month(time))] |>
+  _[, .(area = sum(value, na.rm = TRUE)), by = time]
+```
+
+
+```{r}
+area |>
+  ggplot(aes(time, area)) +
+  geom_line()
+```
+
+
+```{r}
+eofs |>
+  _[variable == "obs"] |>
+  _[, eof[[1]]$right, by = variable] |>
+  _[area, on = "time"] |>
+  _[, cor(area, value)^2, by = .(PC, variable)] |>
+  ggplot(aes(PC, V1)) +
+  geom_line(aes(group = variable))
+```
+
+
+```{r}
+
+eofs |>
+  _[variable == "obs"] |>
+  _[, predict(cut(eof[[1]], 5)), by = variable] |>
+  _[, sum(value), by = .(variable, time)] |>
+  _[, V1 := V1 - mean(V1), by = .(variable, month(time))] |>
+  ggplot(aes(time, V1)) +
+  geom_line(aes(color = variable))
+```
+
+
+
+
+
+
+```{r}
+
+era_grid <- "/g/data/rt52/era5/single-levels/monthly-averaged/2t/*/*.nc" |>
+  Sys.glob() |>
+  _[1] |>
+  cdo_samplegrid(4) |>
+  cdo_sellonlatbox(0, 360, -90, -45) |>
+  cdo_seltimestep(1) |>
+  cdo_execute()
+
+```
+
+
