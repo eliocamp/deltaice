@@ -66,8 +66,6 @@ A Plain Language Summary (PLS) can be an incredibly effective science communicat
 
 ## Introduction
 
-
-
 ```{r include=FALSE}
 #| label: setup
 knitr::opts_chunk$set(
@@ -79,7 +77,7 @@ knitr::opts_chunk$set(
   fig.width = 12,
   message = FALSE,
   warning = FALSE,
-  cache = FALSE,
+  cache = TRUE,
   cache.extra = 42
 )
 
@@ -88,11 +86,14 @@ library(lubridate)
 library(data.table)
 library(ggplot2)
 library(rcdo)
-future::plan("multicore", workers = parallelly::availableCores())
+future::plan("multicore", workers = parallelly::availableCores(omit = 1))
 
 cdo_cache_set(here::here("data/temp/cache"))
 cdo_options_set("-L")
-source(here::here("R/datasets.R"))
+
+box::use(R / datasets[...])
+box::use(R / functions[...])
+
 source(here::here("R/ggplot.R"))
 
 ggplot2::theme_set(
@@ -116,10 +117,62 @@ topo <- cdo_topo(grid = "r720x360") |>
   cdo_remapmean(grid = "r360x180") |>
   cdo_remapbil(grid = CDR_grid()) |>
   cdo_execute(options = "-f nc") |>
-  ReadNetCDF() |>
-  setnames(c("xgrid", "ygrid"), c("x", "y"))
+  ReadNetCDF()
 
 proj <- "+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=6378273 +b=6356889.449 +units=m +no_defs"
+```
+
+
+```{r}
+variable_labels <- c(
+  aice = "Monthly mean sea ice concentration",
+  t2m = "Monthly mean 2-m temperature",
+  daice = "Monthly change in monthly mean sea ice concentration",
+  area = "Monthly sea ice area",
+  area_a = "Monthly sea ice area anomalies",
+  area_y = "Yearly mean sea ice area"
+)
+
+set_labels <- function(data) {
+  for (n in names(variable_labels)) {
+    if (n %in% colnames(data)) {
+      attr(data[[n]], "label") <- variable_labels[n]
+    }
+  }
+  return(data)
+}
+```
+
+
+
+```{r}
+#| label: daice
+#| cache: false
+reldiff <- function(x) {
+  n <- length(x)
+  x[2:n] / x[1:(n - 1)]
+}
+
+ant_ice <- CDRv6() |>
+  ReadNetCDF("aice") |>
+  normalise_names() |>
+  _[, daice := c(diff(aice), NA), by = .(x, y)]
+
+temp_era_mon <- ERA5_t2m() |>
+  ReadNetCDF("t2m")
+
+sst_era_mon <- ERA5_sst() |>
+  ReadNetCDF("sst")
+
+daice <- ant_ice |>
+  _[temp_era_mon, on = .NATURAL] |>
+  _[sst_era_mon, on = .NATURAL] |>
+  _[year(time) %between% c(1983, 2024)] |>
+  _[, t2m := t2m - 273.15] |>
+  _[, sst := sst - 273.15] |>
+  _[, time := as.Date(time)]
+
+rm(ant_ice, sst_era_mon, temp_era_mon)
 ```
 
 
@@ -127,35 +180,7 @@ proj <- "+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=63782
 
 * CDR data source
 
-
-```{r}
-days <- 5
-daice_daily <- merge(
-  CDR() |>
-    cdo_selday(days) |>
-    cdo_execute() |>
-    ReadNetCDF(),
-
-  CDR() |>
-    cdo_deltat() |>
-    cdo_selday(days + 1) |>
-    cdo_shifttime("-1day") |>
-    cdo_execute() |>
-    ReadNetCDF(c(daice = "aice"))
-)
-
-
-daice_daily <- merge(
-  ERA5_t2m() |>
-    cdo_selday(days) |>
-    cdo_execute() |>
-    ReadNetCDF("t2m"),
-  daice_daily
-) |>
-  _[, t2m := t2m - 273.15] |>
-  setnames(c("xgrid", "ygrid"), c("x", "y"))
-```
-
+CDR doesn't do data between 0 and 0.1, so I can't reliably compute delta ice within that range. 
 
 * ACCESS-S2 data source
 
@@ -166,35 +191,43 @@ daice_daily <- merge(
 
 ### Simple model of sea ice growth 
 
-I start with a simplified model of sea-ice growth.
+I start with a simplified model of sea ice growth.
 In this model, each cell has an area of water and of an area covered with ice. 
 Assuming that sea ice is a perfect insulator, the ocean surface exchanges heat with the atmosphere only in the ice-free surface. 
-This heat flux is parameterised with a bulk formula with a constant exchange coefficent and sea surface temperature is assumed to be constant and equal to the freezing point. 
+This heat flux is parameterised with a bulk formula with a constant exchange coefficient and sea surface temperature is assumed to be constant and equal to the freezing point. 
 This latter assumption is somewhat justified by the fact that a mixture of water and ice in thermodynamic equilibrium will stay at the freezing point, and any heat gain or loss will either melt or freeze more ice.
 
 The full formula for the heat exchange per unit area then is 
 
 $$
-F = \alpha (T_a - T_o) (1 - I_a)
+F = \alpha (T_a - T_f) (1 - I_a)
+$$ {#eq-flux}
+
+Where, $T_f$ and $T_a$ are the freezing point temperature of the ocean and the atmosphere respectively, $I_a$ is the proportion of the gridcell covered with ice and $\alpha$ is a proportionality constant. 
+
+The change in sea ice concentration will be related to $F$. 
+To transform the heat exchange flux to a proportion of sea ice melted or ice-free ocean frozen $F_{p}$, we use this transformation. 
+
+$$
+F_{p} = \frac{F} {(1 + \left| F \right |)}
 $$
 
-Where, $T_o$ and $T_a$ are the temperature of the ocean and the atmosphere respectively, $I_a$ is the proportion of the gridcell covered with ice and $\alpha$ is a proportionality constant. 
+This transformation ensures that $F_p$ is bounded by $\left(0, 1\right)$ and parameterises a saturation point beyond extremely strong fluxes will be partially counteracted by other processes like horizontal and vertical transport of heat within the top layer of the ocean. 
 
-The change in sea-ice concentration will be related to $F$. 
 If $F$ is negative, the heat lost to the ocean is balanced by freezing. 
-However, because only ice-free areas can freeze, I assume that the change in sea-ice concentration is also proportial to the ice-free area. 
+However, because only ice-free areas can freeze, I assume that the change in sea ice concentration is also proportial to the ice-free area. 
 
 $$
-\frac{dI_a}{dt} = \beta_f F (1 - I_a)
+\dot{I} = -\beta_f F_{p} (1 - I_a)
 $$
 
 Where $\beta_f$ is a freezing proportionality constant. 
 
-If $F$ is positive, the ocean gains heat which is used to melt ice. 
-In this case it is only ice-covered areas which can metl, making the change in sea-ice concentration proportional to sea-ice concentation itself.
+Conversely, if $F$ is positive, the ocean gains heat which is used to melt ice. 
+In this case it is only ice-covered areas which can melt, making the change in sea ice concentration proportional to sea ice concentration itself.
 
 $$
-\frac{dI_a}{dt} = \beta_m F I_a
+\dot{I} = -\beta_m F_{p} I_a
 $$
 
 Where $\beta_m$ is a memlting proportionality constant that in principle could be different from $\beta_f$. 
@@ -202,369 +235,508 @@ Where $\beta_m$ is a memlting proportionality constant that in principle could b
 The full model, therefore is
 
 $$
-\frac{dI_a}{dt} =
+\dot{I} =
 \begin{cases}
-\beta_f \alpha (T_a - T_o) (1 - I_a)^2    & \text{if } T_a \le T_o, \\
-\beta_m \alpha (T_a - T_o) (1 - I_a) I_a  & \text{if } T_a \gt T_o
-
+\frac{-\beta_f \alpha (T_a - T_f) (1 - I_a)^2 }{ 1 + \alpha (T_a - T_f) (1 - I_a)}    &  T_a \le T_f, \\
+\frac{-\beta_m \alpha (T_a - T_f) (1 - I_a) I_a }{ 1 + \alpha (T_a - T_f) (1 - I_a)}  &  T_a 	> T_f
 \end{cases}
-$$
+$$ {#eq-model}
 
+```{r}
+#| label: doti
+doti <- latex2exp::TeX(r"(\dot{I})")
+```
 
 
 * Properties of the model
 
-This parameterisation predicts diverging behaviours of sea-ice growth and retreat. 
-
-For a given air temperature, sea-ice growth should be maximum at low sea-ice concentrations since that maximises both the heat loss and available ice-free ocean. 
-At high sea-ice concentrations, heat fluxes are suppressed and there is little open water to freeze, leading to slow growth. 
-Sea-ice melt, on the other hand, should be zero both at high and low concentrations either because there is no ice to melt or the ice insulates heat gains from the atmosphere. 
-Maximum melt should be at around 50% sea-ice concentrations, when there is enough ice to melt and enough ice-free ocean for the ocean to gain heat. 
-
-
-```{r, cache = FALSE}
-knitr::knit_exit()
-```
-
-
 
 ```{r}
-#| label: ant_ice
-ant_ice <- CDR() |>
-  cdo_monmean() |>
-  cdo_setday(1) |>
-  cdo_settime("00:00:00") |>
-  cdo_execute() |>
-  ReadNetCDF("aice") |>
-  setnames(c("xgrid", "ygrid"), c("x", "y")) |>
-  _[, daice := c(diff(aice), NA), by = .(x, y)]
-```
+#| label: grid_monthly
 
-since 1983 because we found some problematic data before that. 
+# daice[,
+#   c("lon", "lat") := proj4::project(
+#     list(x, y),
+#     proj = sic_projection,
+#     inverse = TRUE
+#   )
+# ] |>
+#   _[, lon := ConvertLongitude(lon)]
 
-* ERA5 data source
-
-```{r}
-#| label: temp_era_mon
-temp_era_mon <- ERA5_t2m() |>
-  cdo_monmean() |>
-  cdo_setday(1) |>
-  cdo_settime("00:00:00") |>
-  cdo_execute() |>
-  ReadNetCDF("t2m") |>
-  setnames(c("xgrid", "ygrid"), c("x", "y"))
+grid_monthly <- daice |>
+  _[,
+    .(
+      daice = mean(daice, na.rm = TRUE),
+      # daice_sd = sd(daice, na.rm = TRUE),
+      n = sum(!is.na(daice))
+    ),
+    by = .(
+      t2m = cut_mid(t2m, 0.2, 0),
+      aice = cut_mid(aice, 0.01, 0.11)
+    )
+  ] |>
+  _[!is.na(aice)]
 ```
 
 ```{r}
-#| label: daice
-daice <- ant_ice |>
-  _[year(time) > 1983] |>
-  _[temp_era_mon[year(time) >= 1983], on = .NATURAL] |>
-  _[year(time) < 2024] |>
-  _[, t2m := t2m - 273.15] |>
-  identity()
+#| label: model_monthly_training
+
+n_samples <- 1e6
+model_monthly_training <- daice |>
+  na.omit() |>
+  _[t2m < 1] |>
+  _[year(time) < 2014]
+
+model_monthly_training <-
+  model_monthly_training[withr::with_seed(
+    42,
+    sample(.N, n_samples)
+  )]
 ```
 
-```{r}
-
-lm_constrained <- function(data, formula) {
-  # Design matrix for polynomial fit (example: quadratic in t2m, linear in aice)
-  # formula <-
-  X <- model.matrix(formula, data = data)
-
-  y <- data$daice
-
-  # Quadratic programming setup
-  Dmat <- t(X) %*% X
-  dvec <- t(X) %*% y
-
-  # Constraints:
-  # If aice=0 → fitted >= 0
-  # If aice=1 → fitted <= 0
-  # → These are linear in coefficients: X %*% beta >= 0 for rows with aice=0,
-  #    X %*% beta <= 0 for rows with aice=1.
-
-  A1 <- X[data$aice == 0, , drop = FALSE]
-  b1 <- rep(0, nrow(A1))
-
-  A2 <- -X[data$aice == 1, , drop = FALSE]
-  b2 <- rep(0, nrow(A2))
-
-  # negative values at high temp
-  A3 <- -X[data$t2m > 0 & !(data$aice == 0), , drop = FALSE]
-  b3 <- rep(0, nrow(A3))
-
-  # positive values at low temp
-  A4 <- X[data$t2m < -15 & !(data$aice == 1), , drop = FALSE]
-  b4 <- rep(0, nrow(A4))
-
-  Amat <- t(rbind(A1, A2, A3, A4)) # constraints in quadprog form: t(Amat) %*% beta >= bvec
-  bvec <- c(b1, b2, b3, b4)
-
-  fit <- quadprog::solve.QP(Dmat, dvec, Amat, bvec)
-
-  # Create a normal lm fit and replace coefficients with the new
-  formula2 <- as.formula(paste0("daice ~ ", as.character(formula)[2]))
-  mod <- lm(formula2, data = data[1:100, ])
-  mod$coefficients <- fit$solution
-  mod
-}
-```
 
 ```{r}
 #| label: model_monthly
-n_samples <- 500000
-model_monthly <- daice |>
-  na.omit() |>
-  _[year(time) < 2014]
+
+model_monthly <- loess(
+  daice ~ t2m + aice,
+  data = grid_monthly[n > 50],
+  span = 0.1,
+  degree = 2
+)
+
+# Observed t2m range at each COARSE aice value actually present in grid_monthly
+data_range <- grid_monthly[n > 100] |>
+  _[, .(t2m_min = min(t2m), t2m_max = max(t2m)), by = .(aice)]
+setkey(data_range, aice)
 
 
-# Make sure that we've got all the extreme low cases to ensure
-# that the function is positive at those values.
-temp_extreme <- -30
-model_monthly <- rbind(
-  model_monthly[t2m > temp_extreme][withr::with_seed(
-    42,
-    sample(.N, n_samples)
-  )],
-  model_monthly[t2m <= temp_extreme]
-) |>
-  lm_constrained(~ poly(t2m, aice, degree = 6, raw = TRUE))
-```
+t2m_seq <- seq(-70, 30, by = 0.1)
+aice_seq <- seq(0, 1, by = 0.01)
 
-```{r}
-daice |>
-  na.omit() |>
-  _[year(time) < 2014] |>
-  _[withr::with_seed(42, sample(.N, n_samples))] |>
-  ggplot(aes(t2m, aice))
-```
+smooth_grid <- CJ(t2m = t2m_seq, aice = aice_seq)
 
-```{r}
-cut_mid <- \(x, width, center) {
-  breaks <- AnchorBreaks(center + width / 2, binwidth = width)(range(x))
+setkey(smooth_grid, aice)
 
-  santoku::chop(x, breaks, labels = santoku::lbl_midpoints()) |>
-    as.character() |>
-    as.numeric()
+# # Roll-join: for each fine aice value, borrow the nearest coarse bin's
+# # observed t2m range
+smooth_grid <- data_range[smooth_grid, roll = "nearest"]
+
+
+spmax <- function(x, y, e = 0.001) {
+  (x + y + sqrt((x - y)^2 + e)) / 2
 }
 
+spmin <- function(x, y, e = 0.001) {
+  (x + y - sqrt((x - y)^2 + e)) / 2
+}
 
-grid_monthly <- daice |>
-  _[year(time) > 1983] |>
-  _[!is.na(daice)] |>
-  _[,
-    .(daice = mean(daice), n = sum(!is.na(daice))),
-    by = .(
-      t2m = cut_mid(t2m, 0.5, 0),
-      aice = cut_mid(aice, 0.05, 0)
-    )
-  ]
+clamp_daice <- function(daice, aice) {
+  pmax(-aice, pmin(daice, 1 - aice))
+}
 
-```
+smooth_grid[, t2m_clamped := pmax(t2m_min, pmin(t2m, t2m_max))]
 
 
-```{r}
-grid_daily <- daice_daily |>
-  _[year(time) > 1983] |>
-  _[!is.na(daice)] |>
-  _[,
-    .(daice = mean(daice), n = sum(!is.na(daice))),
-    by = .(
-      t2m = cut_mid(t2m, 0.5, 0),
-      aice = cut_mid(aice, 0.05, 0)
-    )
-  ]
+smooth_grid[,
+  daice := predict(
+    model_monthly,
+    newdata = data.frame(aice = aice, t2m = t2m_clamped)
+  )
+] |>
+  _[t2m > 0 & daice > 0, daice := -daice]
 
-```
+smooth_grid[aice == 0, daice := smooth_grid[aice == 0.01, daice]]
 
-```{r}
-#| label: model_daily
-model_daily <- daice_daily |>
-  na.omit() |>
-  _[year(time) < 2014]
+smooth_grid[, daice := clamp_daice(daice, aice)]
 
-temp_extreme <- -30
-model_daily <- rbind(
-  model_daily[t2m > temp_extreme][withr::with_seed(42, sample(.N, n_samples))],
-  model_daily[t2m <= temp_extreme]
-) |>
-  lm_constrained(~ poly(t2m, aice, degree = 6, raw = TRUE))
-```
+b <- seq(-1, 1, by = 0.1)
 
-```{r}
-
-```
-
-```{r}
-# dc <- function(
-#   ta,
-#   c,
-#   Fo = 1,
-#   to = -1.8,
-#   alpha = 1,
-#   beta_f = 1,
-#   beta_m = beta_f
-# ) {
-#   sharpness <- 50
-
-#   air_flux <- alpha * (ta - to) * (1 - c)
-#   ocean_flux <- Fo * c * (1 - c)
-
-#   norm <- \(x) {
-#     (tanh(sharpness * x) + 1) / 2
-#   }
-
-#   air_flux <- air_flux *
-#     (beta_m * norm(air_flux) * c + beta_f * norm(-air_flux) * (1 - c))
-
-#   -air_flux - beta_m * ocean_flux * c
-# }
-
-```
-
-```{r}
-d <- daice |>
-  na.omit() |>
-  _[year(time) < 2014] |>
-  _[t2m > -10 & t2m < 1] |>
-  _[withr::with_seed(42, sample(.N, 200000))]
-```
-
-
-```{r}
-d_daily <- daice_daily |>
-  na.omit() |>
-  _[year(time) < 2014] |>
-  _[t2m > -10 & t2m < 1] |>
-  _[withr::with_seed(42, sample(.N, 200000))]
-```
-
-
-
-```{r}
-Rcpp::sourceCpp(here::here("analysis/paper/daice.cpp"))
-mod <- minpack.lm::nlsLM(
-  daice ~
-    daice_cpp(
-      t2m,
-      aice,
-      to = to,
-      alpha = 1,
-      Fo = Fo,
-      beta_f = beta_f,
-      beta_m = beta_m
-    ),
-  data = d,
-  start = c(Fo = 1, to = -1.8, beta_f = 0.16, beta_m = 1.25),
-  lower = c(Fo = 0, to = -20, beta_f = 0, beta_m = 0),
-  control = minpack.lm::nls.lm.control(maxiter = 200)
-) |>
-  withr::with_seed(seed = 42)
-
-
-```
-
-```{r}
 grid_monthly |>
-  _[t2m > -15 & t2m < 1] |>
-  _[, daice2 := predict(mod, .SD)] |>
+  # _[n > 200] |>
   ggplot(aes(aice, t2m)) +
-  geom_contour_fill(aes(z = daice2)) +
+  geom_contour_fill(aes(z = daice), breaks = b) +
+  geom_contour2(
+    aes(z = daice, linetype = factor(sign(-..level..))),
+    breaks = b,
+    data = smooth_grid
+  ) +
+  geom_contour2(
+    aes(z = daice),
+    breaks = 0,
+    linewidth = 2,
+    data = smooth_grid
+  ) +
+  # ylim(c(-20, 1))+
   scale_fill_gradient2()
+
+# old_coef <- c(
+#   -0.082,
+#   -0.14,
+#   -0.0085,
+#   -0.00012,
+#   -1.4,
+#   -0.28,
+#   1.6,
+#   -0.57,
+#   -0.04,
+#   -0.00078,
+#   1.2,
+#   0.095,
+#   0.0018,
+#   -0.5,
+#   -0.047,
+#   -0.00096
+# )
+
+# model_monthly$coefficients <- old_coef
+```
+
+
+
+```{r}
+# daice |>
+#   _[t2m < -20] |>
+#   _[, .(n = mean(daice < 0, na.rm = TRUE), N = .N), by = .(x, y)] |>
+#   _[N > 10] |>
+#   ggplot(aes(x, y)) +
+#   geom_raster(aes(fill = n)) +
+#   geom_antarctica_fill +
+#   scales_antarctica +
+#   scale_fill_gradient2(midpoint = 0.5)
 ```
 
 ```{r}
-Rcpp::sourceCpp(here::here("analysis/paper/daice.cpp"))
-mod_daily <- minpack.lm::nlsLM(
+#| label: tf_model
+zero <- purrr::possibly(
+  function(x, y) {
+    approxfun(x, y) |>
+      uniroot(interval = c(min(x), max(x))) |>
+      _$root
+  },
+  otherwise = NA_real_
+)
+
+
+tf <- grid_monthly[n > 10 & t2m %between% c(-15, 1)] |>
+  _[, .(y = zero(t2m, daice)), by = .(x = aice)]
+
+
+tf_model <- lm(y ~ poly(x, degree = 4, raw = TRUE), data = tf)
+```
+
+
+```{r}
+#| label: daice_cpp
+Rcpp::sourceCpp(here::here("src/daice.cpp"))
+```
+
+```{r}
+#| label: mod_simple
+mod_simple <- minpack.lm::nlsLM(
   daice ~
     daice_cpp(
       t2m,
       aice,
       to = to,
       alpha = alpha,
-      Fo = Fo,
+      gamma = 0,
       beta_f = beta_f,
       beta_m = beta_m
     ),
-  data = d_daily,
-  start = c(alpha = 1, Fo = 1, to = -1.8, beta_f = 0.16, beta_m = 1.25),
-  lower = c(alpha = 0, Fo = 0, to = -20, beta_f = 0, beta_m = 0),
+  data = model_monthly_training[t2m > -25],
+  start = c(
+    to = -1.9,
+    beta_m = 1.25,
+    beta_f = 1.35,
+    alpha = 1
+  ),
+  lower = c(
+    to = -20,
+    beta_m = 0,
+    beta_f = 0,
+    alpha = 0
+  ),
   control = minpack.lm::nls.lm.control(maxiter = 200)
 ) |>
   withr::with_seed(seed = 42)
-
-grid_daily[, daice2 := predict(mod_daily, .SD)]
 ```
 
 ```{r}
-grid_daily |>
-  _[t2m > -15 & t2m < 1] |>
-  ggplot(aes(aice, t2m)) +
-  geom_contour_fill(aes(z = daice2)) +
-  scale_fill_gradient2()
+#| label: mod_tf
+coef_tf_model <- coef(tf_model)
+mod_tf <- minpack.lm::nlsLM(
+  daice ~
+    daice_cpp(
+      t2m,
+      aice,
+      to = coef_tf_model[1],
+      tf_a = coef_tf_model[-1],
+      alpha = alpha,
+      gamma = 0,
+      beta_f = beta_f,
+      beta_m = beta_m
+    ),
+  data = model_monthly_training[t2m > -25],
+  start = c(
+    beta_m = 1.25,
+    beta_f = 1.35,
+    alpha = 1
+  ),
+  lower = c(
+    beta_m = 0,
+    beta_f = 0,
+    alpha = 0
+  ),
+  control = minpack.lm::nls.lm.control(maxiter = 200)
+) |>
+  withr::with_seed(seed = 42)
 ```
 
 ```{r}
-#| fig-height: 5.250
-#| fig.width: 15.365
+#| label: mod_gamma
+mod_gamma <- minpack.lm::nlsLM(
+  daice ~
+    daice_cpp(
+      t2m,
+      aice,
+      to = to,
+      alpha = alpha,
+      gamma = gamma,
+      beta_f = beta_f,
+      beta_m = beta_m,
+      beta_m2 = beta_m2
+    ),
+  data = model_monthly_training[t2m > -25],
+  start = c(
+    gamma = 1,
+    to = -1.9,
+    beta_m = 1.25,
+    beta_m2 = 1.25,
+    beta_f = 1.35,
+    alpha = 1
+  ),
+  lower = c(
+    gamma = -20,
+    to = -20,
+    beta_m = 0,
+    beta_m2 = 0,
+    beta_f = 0,
+    alpha = 0
+  ),
+  control = minpack.lm::nls.lm.control(maxiter = 200)
+) |>
+  withr::with_seed(seed = 42)
+```
+
+```{r}
+#| label: mod_damping
+mod_damping <- minpack.lm::nlsLM(
+  daice ~
+    daice_cpp(
+      t2m,
+      aice,
+      to = to,
+      damping_strength = damping_strength,
+      t_damping_range = c(-20, 0),
+      alpha = alpha,
+      gamma = 0,
+      beta_f = beta_f,
+      beta_m = beta_m
+      # beta_m2 = beta_m2
+    ),
+  data = model_monthly_training[t2m > -25],
+  start = c(
+    # gamma = 1,
+    to = -1.9,
+    beta_m = 1.25,
+    # beta_m2 = 1.25,
+    beta_f = 1.35,
+    alpha = 1,
+    damping_strength = -0.5
+  ),
+  lower = c(
+    # gamma = -20,
+    to = -20,
+    beta_m = 0,
+    # beta_m2 = 0,
+    beta_f = 0,
+    alpha = 0,
+    damping_strength = -10
+  ),
+  control = minpack.lm::nls.lm.control(maxiter = 200)
+) |>
+  withr::with_seed(seed = 42)
+```
+
+
+```{r}
+Rcpp::sourceCpp(here::here("src/poly_interactions_cpp.cpp"))
+```
+
+
+```{r}
+#| label: models
+daice_fitted <- function(mod, aice, t2m) {
+  predict(mod, newdata = data.frame(aice = aice, t2m = t2m))
+}
+
+high_t <- -1
+low_t <- -7
+
+celsius <- \(x) paste0(x, "°C")
+
+aice_value <- function(t2m_range, max = 1) {
+  function(t2m) {
+    midpoint <- min(t2m_range)
+    r <- diff(range(t2m_range))
+
+    zeros <- midpoint + c(-r, r)
+    max_value <- ((midpoint - zeros[1]) * (midpoint - zeros[2]))
+
+    val <- (t2m - zeros[1]) * (t2m - zeros[2]) / max_value * max
+
+    val <- ifelse(t2m < midpoint, max, val)
+    ifelse(t2m > max(zeros), 0, val)
+  }
+}
+
+labs_models <- c(
+  daice = "Obs",
+  daice_simple = "Simple model",
+  daice_tf = "Variable T_f",
+  daice_gamma = "Model with extra flux",
+  daice_poly = "Polynomial fit"
+)
+
+smooth_grid_coarse <- smooth_grid[, .(
+  t2m,
+  aice,
+  value = daice,
+  variable = "daice_poly"
+)] |>
+  _[,
+    Interpolate(
+      value ~ t2m + aice,
+      x.out = unique(grid_monthly$t2m),
+      y.out = unique(grid_monthly$aice)
+    ),
+    by = variable
+  ]
+
+models <- grid_monthly |>
+  _[, .(t2m, aice, daice, n)] |>
+  _[,
+    let(
+      daice_simple = daice_fitted(mod_simple, aice, t2m),
+      daice_gamma = daice_fitted(mod_gamma, aice, t2m),
+      # daice_damping = daice_fitted(mod_damping, aice, t2m),
+      # daice_poly = predict(model_monthly, newdata = .SD),
+      daice_tf = daice_fitted(mod_tf, aice, t2m)
+    )
+  ] |>
+  # _[,
+  #   daice_damping := daice_simple *
+  #     0.8 -
+  #     0.5 * (aice - aice_value(c(-20, 0), 0.8)(t2m))
+  # ] |>
+  _[, n := NULL] |>
+  melt(
+    id.vars = c("aice", "t2m")
+  ) |>
+  rbind(smooth_grid_coarse) |>
+  _[, variable := factor(variable, levels = names(labs_models))]
+```
+
+
+```{r}
 #| label: fig-aice-lines
-
-grid_monthly |>
-  _[t2m == 0.5 | t2m == -10] |>
-  _[, state := ifelse(t2m < 0, "-10°C", "0.5°C")] |>
-  # _[, state := cut(t2m, breaks = c(0.5 - halfwidth_temp, 0.5+ halfwidth_temp, -10 - halfwidth_temp, -10 + halfwidth_temp))] |>
-  ggplot(aes(aice, daice)) +
+#| fig-height: 5
+#| fig-width: 9
+#| fig-cap: Observed and modelled sea ice change. 
+models |>
+  _[t2m %~% high_t | t2m %~% low_t] |>
+  # set_labels() |>
+  # _[variable == "daice_damping"] |>
+  ggplot(aes(aice, value)) +
   geom_hline(yintercept = 0, colour = "gray") +
+  annotate(
+    "rect",
+    xmin = -Inf,
+    xmax = 0.15,
+    ymin = -Inf,
+    ymax = Inf,
+    colour = NA,
+    fill = "gray",
+    alpha = 0.5
+  ) +
+  geom_line(
+    data = \(x) copy(x)[variable == "daice"][, variable := NULL],
+    aes(group = t2m),
+    linewidth = 1,
+    colour = "gray"
+  ) +
   geom_line(
     aes(
-      color = state,
-      linetype = "Observed",
+      colour = celsius(t2m),
+      # linetype = variable,
     ),
     linewidth = 1
   ) +
-  # geom_line(
-  #   aes(
-  #     y = daice2,
-  #     color = state,
-  #     linetype = "Fitted",
-  #   ),
-  #   linewidth = 1
+
+  # scale_color_manual(
+  #   "2-m temperature",
+  #   values = c("red", "blue") |> setNames(celsius(c(high_t, low_t)))
   # ) +
-  stat_function(
-    fun = \(x) -(1 - x) * x,
-    aes(color = "0.5°C", linetype = "Theory"),
-  ) +
-  stat_function(
-    fun = \(x) (1 - x)^2,
-    aes(color = "-10°C", linetype = "Theory"),
-  ) +
-  scale_color_manual(
-    "2-m temperature",
-    values = c("0.5°C" = "red", "-10°C" = "blue")
-  ) +
+  # scale_linetype_manual(
+  #   values = c(
+  #     daice = "solid",
+  #     daice_simple = "31",
+  #     daice_gamma = "4212",
+  #     daice_tf = "4422",
+
+  #   )
+  # ) +
   scale_y_continuous("dC/dt") +
   scale_x_continuous(
-    "Monthly mean sea-ice concentration",
-    expand = c(0, 0)
-  )
+    "Monthly mean sea ice concentration",
+    expand = c(0, 0),
+    limits = c(0, 1)
+  ) +
+  facet_wrap(~variable, labeller = labeller(variable = labs_models)) +
+  tagger::tag_facets() +
+  theme(tagger.panel.tag.background = element_rect(colour = NA, fill = "white"))
 ```
 
 
-@fig-aice-lines shows the average change in monhtly sea-ice concentration as function of sea-ice concentration for gridcells with 2-m temperature -10°C $\pm$ 0.1°C (ice growth) and 0.5°C $\pm$ 01°C (melt). 
-The observed behaviour fits expectations well. 
-Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea-ice insulation. 
-Growth follows the expected curve, with low growth at high concentrations and high growth at low concentrations. 
-However, it deviates from the model in two ways. 
-First, at sea-ice concentrations lower than 25%, growth is lower than expected. 
-Second, at very high concentrations sea-ice actually melts irregardless of air temperature. 
-
 ```{r}
-#| fig-height: 7.667
-#| fig-width: 10.323
-#| label: fig-daice-hex-monthly
+#| label: fig-daice-monthly
+#| fig-height: 5
+#| fig-width: 10
+#| fig-cap: Average change in sea ice concentration from current to next month as a function of monthly sea ice concentration in current month and monthly mean 2-m tempretuare in curent month for observations (a) @eq-model (b) and @eq-model-2 (c). The gray area represents regions with less than 10 observations. Horizontal lines at {celsius(low_t)} and {celsius(high_t)} indicate the cross-section shown in @fig-aice-lines.
+breaks <- seq(-1, 1, by = 0.1)
 
-grid_monthly |>
+# rms <- vapply(
+#   list(
+#     mod_simple = mod_simple,
+#     mod_tf = mod_tf,
+#     mod_gamma = mod_gamma
+#     # mod_ply = model_monthly
+#   ),
+#   \(model) mean(resid(model)^2),
+#   numeric(1)
+# )
+
+with_base <- models |>
+  _[variable == "daice"] |>
+  _[, variable := NULL] |>
+  setnames("value", "base") |>
+  merge(models[variable != "daice"])
+with_base |>
+  _[, mean((value - base)^2, na.rm = TRUE), by = variable]
+
+
+plot_daice_monthly <- models |>
   ggplot(aes(aice, t2m)) +
   scale_color_manual(
     NULL,
@@ -572,18 +744,23 @@ grid_monthly |>
     guide = "none"
   ) +
   geom_contour_fill(
-    breaks = AnchorBreaks(0),
-    aes(z = daice, fill = ..level..)
+    breaks = breaks,
+    aes(z = value, fill = ..level..)
   ) +
   geom_contour_tanaka(
-    breaks = AnchorBreaks(0),
-    aes(z = daice)
+    breaks = breaks,
+    aes(z = value)
   ) +
   geom_contour2(
     breaks = 0,
-    aes(z = daice),
+    aes(z = value),
   ) +
+  # geom_contour2(
+  #   data = with_base,
+  #   aes(z = value - base, linetype = factor(-sign(..level..)))
+  # ) +
   geom_contour_fill(
+    data = grid_monthly,
     aes(z = n, fill = NULL),
     breaks = c(0, 100),
     fill = "gray",
@@ -592,67 +769,622 @@ grid_monthly |>
   ) +
   geomtextpath::geom_texthline(
     halign = "left",
-    data = data.frame(y = c(-10, -0.5), state = c("Growth", "Melt")),
+    data = data.frame(y = c(low_t, high_t), state = c("Growth", "Melt")),
     aes(yintercept = y, label = state, color = state)
   ) +
   as.discretised_scale(scale_fill_gradient2)("dC/dt") +
   scale_y_continuous(
     "Monthly mean 2-m temperature (°C)",
     limits = c(-15, 2.5),
-    expand = c(0, 0)
+    expand = c(0, 0),
+    breaks = \(x) pretty(x, 10)
   ) +
   scale_x_continuous(
-    "Monthly mean sea-ice concentration",
-    expand = c(0, 0)
+    "Monthly mean sea ice concentration",
+    expand = c(0, 0),
+    limits = c(0, 1)
   ) +
   scale_linetype(guide = "none") +
-  wide_legend
+  wide_legend +
+  facet_wrap(~variable, labeller = labeller(variable = labs_models)) +
+  tagger::tag_facets()
+
+plot_daice_monthly
 ```
 
-A more complete picture is in @fig-daice-hex-monthly which shows average sea-ice concentration change as a function of monthly sea-ice concentrations and 2-metre temperature.
-The purple line uses a polinomial fit to estimate the "zero line" that divides sea-ice growth from melt. 
-Contraty to the model's assumptiont, this zero line is not constant and instead depends heavily on sea-ice concentration. 
-At low concentrations, air temperatures just below freezing are enough to cause sea-ice growth on average, but at high concentrations, the air needs to be extremely cold for ice not to melt. 
+ 
+```{r}
+#| label: fig-daice-lines-aice
+#| fig-height: 5
+#| fig-width: 9
+#| fig-cap: Observed and modelled sea ice change. 
+models |>
+  _[aice %~% c(0.25, 0.75, 0.5, 0.9)] |>
+  _[t2m %between% c(-15, 1)] |>
+  ggplot(aes(t2m, value)) +
+  geom_hline(yintercept = 0, colour = "gray") +
+  annotate(
+    "rect",
+    xmin = -Inf,
+    xmax = 0.15,
+    ymin = -Inf,
+    ymax = Inf,
+    colour = NA,
+    fill = "gray",
+    alpha = 0.5
+  ) +
+  geom_line(
+    data = \(x) copy(x)[variable == "daice"][, variable := NULL],
+    aes(group = aice),
+    linewidth = 1,
+    colour = "gray"
+  ) +
+  geom_line(
+    aes(
+      colour = factor(aice)
+      # linetype = variable,
+    ),
+    linewidth = 1
+  ) +
 
-This property cannot be captured by the model in equation XX, which assumes that sea ice will grow whenever air temperature is below the freezing point of ocean water. 
-A possible refinement of the model is to add a constant positive melting flux representing melting of sea-ice from the bottom by the relatively warmer subsurface water. 
-Under this formulation, ice would grow only if the freezing at the surface from the atmosphere was larger than the melting from the ocean, which would require more extreme air temperature when ice insulation is higher. 
-However, a constant heat flux would imply maximum melt at high concentration when the atmospheric flux is nullified. 
-To solve that problem, a further refinemnet is to assume that the ocean melting is also proportional to the ice-free surface. 
-This admitedly ad-hoc supossition could model the effect of waves and wind in creating turbulent mixing of the upper layers. 
+  # scale_color_manual(
+  #   "2-m temperature",
+  #   values = c("red", "blue") |> setNames(celsius(c(high_t, low_t)))
+  # ) +
+  # scale_linetype_manual(
+  #   values = c(
+  #     daice = "solid",
+  #     daice_simple = "31",
+  #     daice_gamma = "4212",
+  #     daice_tf = "4422",
 
-In this full model the change in sea-ice concentration is decomposed into change due to air fluxes and ocean fluxes. 
+  #   )
+  # ) +
+  scale_y_continuous("dC/dt") +
+  # scale_x_continuous(
+  #   "Monthly mean sea ice concentration",
+  #   expand = c(0, 0),
+  #   limits = c(0, 1)
+  # ) +
+  facet_wrap(~variable)
+```
 
-$$
-\frac{dI_a}{dt} = \frac{dI_a}{dt}\Bigg|_a  + \frac{dI_a}{dt}\Bigg|_o 
-$$
+To illustrate the basic properties of this simple model, @fig-aice-lines (dashed lines) shows the change in monthly sea ice concentration change as function of sea ice concentration for one temperature in the melting and freezing regimes. 
+The parameters were fitted to observations using non-linear least squares. 
+For a given temperature below freezing, sea ice growth is maximum at low sea ice concentrations since that maximises both the heat loss and ice-free ocean that is available for freezing. 
+At high sea ice concentrations heat fluxes are suppressed and there is little open water to freeze, leading to slow growth. 
+At a given temperature above freezing, on the other hand, sea ice melt is slow at low concentrations because there is little ice left to melt and at high concentrations because the ice insulates the ocean from the atmosphere. 
+Maximum melt is at around 75% sea ice concentrations, when there is enough ice to melt and enough ice-free ocean for the ocean to exchange heat.
 
-Where $\frac{dI_a}{dt}\Bigg|_a$ is computed as before and $\frac{dI_a}{dt}\Bigg|_o $ is 
+We can compare this model with observed values, computed by averaging gridcells with temperatures of `r celsius(low_t)` and `r celsius(high_t)` $\pm$ 0.25°C and sea ice concentration values binned at boxes 2% wide (solid lines in @fig-aice-lines). 
+The overall curve in observations fits notably well with the simple theory in the melt regime. 
+Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea ice insulation. 
+At 100% sea ice concentrations, melt values are not exactly zero. 
+This in likely partly due to the binning -- which means that these values are actually the average of values between 95% and 100% -- but also likely a real effect that includes many processes that the model doesn't take into account, such as transport, deformation, melting from below and heat exchange through the ice itself. 
 
-$$
-\frac{dI_a}{dt}\Bigg|_o =
+In the growth regime, observations follow the simple model roughly; with low growth at high concentrations and high growth at low concentrations. 
+However, it deviates from the model in two significant ways. 
+First, at sea ice concentrations lower than 25%, growth starts to flatten out.
+This could be due to missing processes, but it is also important to note that satellite observations are increasingly uncertain below ~15% and that there is no data between 0% and 10% concentrations. 
+Second, at high concentrations sea ice actually melts even when exposed to low temperatures. 
 
-\beta_m F_o (1 - I_a) I_a 
-$$
+A more complete picture of the problem is shown in @fig-daice-monthly which shows observed average sea ice concentration change as a function of monthly sea ice concentrations and 2-metre temperature.
+The black line estimates the "zero line" that divides sea ice growth from melt. 
+Thi is essentially an estimate of the effective $T_f$ in @eq-flux. 
+Contraty to the model's assumptiont, this zero line is not constant and instead depends heavily on sea ice concentration. 
+At low concentrations, air temperatures just below -2°C are enough to cause sea ice growth on average, but as sea ice concentrations rise, the air needs to be increasingly colder for ice not to melt. 
+At about 50% sea ice concentration, air temperatures need to be lower than -5°C for ice to grow. 
+This property cannot be captured by the model in @eq-model, which assumes that sea ice will grow whenever air temperature is below the freezing point of ocean water, whose dependency with salinity is nowhere near as strong. 
 
-Where $F_o$ is a constant flux. 
+One possible problem could be the assumption that ocean temperatures are constant. 
+However, reproducing the same plot but using the difference between 2-metre air temperature and SST results in almost the same relationship (@fig-daice-monthly-sst).
+
 
 
 ```{r}
-grid_monthly |>
-  ggplot(aes(aice, t2m)) +
-  geom_contour_fill(
-    breaks = AnchorBreaks(0),
-    aes(z = daice2, fill = ..level..)
+#| label: fig-daice-monthly-sst
+#| fig-height: 5
+#| fig-width: 10
+#| fig-cap: Same as @fig-daice-monthly but using the difference between 2-metre temperature and SST. 
+
+plot_daice_monthly2 <- plot_daice_monthly
+
+plot_daice_monthly2@layers <- plot_daice_monthly2@layers[1:4]
+plot_daice_monthly2@scales$scales[[
+  3
+]]$name <- "Difference between\n2-metre temperature and SST (°C)"
+
+plot_daice_monthly2 +
+  (daice |>
+    _[!is.na(daice)] |>
+    _[,
+      .(value = mean(daice), n = sum(!is.na(daice))),
+      by = .(
+        t2m = cut_mid(t2m - sst, 0.2, 0),
+        aice = cut_mid(aice, 0.01, 0.11)
+      )
+    ]) +
+  facet_null()
+```
+
+A direct refinement of the model is to postulate an ad-hoc dependency of $T_f$ on sea ice concentration. 
+The black line in @fig-daice-monthly is well modelled a fourth degree polinomial in @eq-tf-model fitted by linear regression. 
+
+```{r}
+#| output: asis
+#| label: eq-tf-model
+coefmodel <- coef(tf_model)
+powers <- seq_along(coefmodel) - 1
+
+term <- ifelse(powers != 0, "I", "")
+power <- ifelse(powers > 1, paste0("^", powers), "")
+term <- paste0(term, power)
+
+sign <- ifelse(sign(coefmodel) < 0, "-", "+")
+number <- scales::number(abs(coefmodel))
+
+term <- paste0(number, term)
+
+term <- paste(sign, term)
+
+rhs <- paste0(term, collapse = " ")
+
+cat(paste0("$$\nT_f = ", rhs, "\n$$ {#eq-tf-model}"))
+```
+
+This model reproduces the dependency of $T_f$ on sea ice concentration by definition (@fig-aice-lines c), and matches the overall shape relatively well (@fig-daice-monthly c).
+However, it slightly overestimates the melt ocurring at low temperatures at high sea ice concentrations and features a discontinuity in the derivative of $dI/dt$ with respect to sea ice concentration, creating a "kink" seen in @fig-aice-lines c. 
+Moreover, this is a wholelly ad-hoc modification. 
+Regardless of goodness-of-fit, it would be preferrable to have a model in which the dependency of  $T_f$ with sea ice concentration arised as an emergent property from physically motivated rules. 
+
+A physics-based refinement of the model is pressupose a positive heat flux representing warming of the water from the bottom by mixing of relatively warmer subsurface water. 
+Under this formulation, ice would grow only if the freezing at the surface from the atmosphere was larger than the melting from the ocean, which would require more extreme air temperature when ice insulation is higher at higher concentrations, thus creating an effective dependency on $T_f$ on sea ice concentration. 
+Both wind forcing and waves can induce mixing, and both are dampened by the presence of sea ice, therefore this flux should also be proportional to the ice-free area.
+
+In this full model the change in sea ice concentration is decomposed into change due to air fluxes and ocean fluxes. 
+
+$$
+\dot{I} = \dot{I}\Bigg|_a  + \dot{I}\Bigg|_o 
+$$
+
+Where $\dot{I}\Bigg|_a$ is computed as before and $\dot{I}\Bigg|_o$ is 
+
+$$
+\dot{I}\Bigg|_o = \beta_m F_o I 
+$$
+
+Where $F_o = \gamma(1 - I)$. 
+
+The results of this model are shown in @fig-aice-lines d and @fig-daice-monthly d.
+This model produces a $T_f$ dependency comparable with observations, although the exact shape is clearly not correct; it is too flat at low sea ice concentrations and too steep at high sea ice concentrations. 
+Nevertheless, it suggest that ocean processes might be responsible for this phenomenon. 
+
+An alternative model imposing a damping forcing that relaxes sea ice concentrations towards a temperature-dependent value were tried. 
+This tries to simulate that gridpoints with either particularly high or low sea ice concentration values compared with their surroundings will tend to either export ice away or gain ice from their neighbours. 
+However, the estimated damping strength from observations was minimal and could not explain the observed shaped of the ice-temperature surface. 
+A nudge would also not be compatible with the observed zero melt at 100% sea ice concentration. 
+
+
+
+
+* Integration of the model
+
+Even a perfect fit to the observed average relationship will only capture a fracton of the total variabilty of sea ice, since it ignores a multitude of external factors and internal sea ice proceses. 
+To explore how much can be explained, we integrate the models in time using 2-metre temperature fields from ERA5 as forcing. 
+
+
+```{r}
+#| label: interpolate_cpp
+Rcpp::sourceCpp(here::here("src/interpolate_cpp.cpp"))
+```
+
+```{r}
+#| label: era_temp_fun
+era_temp_fun <- function(data) {
+  t2m_matrix <- data[, .(time, x, y, t2m)] |>
+    metR:::.tidy2matrix(x + y ~ time, value.var = "t2m") |>
+    _$matrix
+  t2m_time <- 0:(ncol(t2m_matrix) - 1)
+
+  function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
+}
+```
+
+```{r}
+mask <- daice[, mean(is.na(aice)), by = .(x, y)][V1 < 1][, V1 := NULL]
+start <- daice[time == time[1]] |>
+  _[mask, on = .NATURAL]
+```
+```{r}
+#| label: integration
+box::use(R / integration[evolve_])
+
+evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
+```
+
+```{r}
+time_translate <- data.table(
+  time = seq(
+    as.Date(min(daice[!is.na(aice)]$time)),
+    as.Date(max(daice[!is.na(aice)]$time)),
+    by = "1 month"
+  )
+) |>
+  _[, t := 0:(.N - 1)]
+
+time_fun <- \(t) {
+  as.Date(as.POSIXct(
+    approxfun(time_translate$t, time_translate$time)(t),
+    tz = "UTC"
+  ))
+}
+forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
+```
+
+```{r}
+Sys.setenv(PKG_CXXFLAGS = "-O3 -march=native -fopenmp")
+Sys.setenv(PKG_LIBS = "-fopenmp")
+Rcpp::sourceCpp(here::here("src/lookup.cpp"))
+```
+
+```{r}
+d_ice <- function(grid) {
+  if (anyNA(grid)) {
+    stop("Missing values in grid")
+  }
+
+  function(state, time, forcing) {
+    t2m <- forcing(time)
+    d_ice <- lookup(state, t2m, grid)
+    d_ice
+  }
+}
+
+
+make_grid_matrix <- function(grid) {
+  daice_grid <- dcast(grid, aice ~ t2m, value.var = "daice")[, -1] |>
+    as.matrix()
+  return(daice_grid)
+}
+
+lm_to_dice <- function(model) {
+  smooth_grid |>
+    copy() |>
+    _[, daice := clamp_daice(predict(model, .SD), aice)] |>
+    make_grid_matrix() |>
+    d_ice()
+}
+```
+
+```{r}
+models <- list(
+  model_obs = d_ice(make_grid_matrix(smooth_grid)),
+  mod_simple = lm_to_dice(mod_simple)
+)
+```
+
+```{r}
+simulate_model <- function(model) {
+  sample <- model(stat = start$aice, time = 0, forcing = forcing_temp)
+  hash <- digest::digest(sample, algo = "xxh3_128")
+  out <- glue::glue("data/derived/simulations/{hash}.nc")
+
+  if (file.exists(out)) {
+    message("Returning cached result")
+    return(out)
+  }
+
+  sim <- evolve(
+    start = start,
+    model = model,
+    start_time = min(time_translate$t),
+    end_time = max(time_translate$t),
+    dt = 1 / 31,
+    forcing = forcing_temp
+  )
+  sim <- time_translate[sim, on = "t"][, t := NULL]
+
+  sim |>
+    tidyr::complete(time, x, y) |>
+    data.table::setDT() |>
+    _[order(time, -y, x)] |>
+    metR:::WriteNetCDF(
+      tempfile(),
+      "aice",
+      c("x", "y", "time"),
+      order = FALSE
+    ) |>
+    rcdo::cdo_setgrid(CDRv6()) |>
+    rcdo::cdo_execute(out = out)
+}
+```
+
+```{r}
+sims <- lapply(models, simulate_model) |>
+  c(list(obs = CDRv6(), s2 = s2()))
+
+sims <- data.table(model = names(sims), file = unlist(sims))
+```
+
+
+```{r}
+area <- sims[,
+  file |>
+    cdo_fldint() |>
+    ReadNetCDF(c(area = "aice")),
+  by = .(model)
+]
+```
+
+```{r}
+#| label: fig-seasonal-cycle
+area |>
+  # _[year(time) %between% c(1990, 2000)] |>
+  _[,
+    median_ci(area),
+    by = .(month(time), model)
+  ] |>
+  _[, base := estimate[model == "obs"], by = month] |>
+  _[model != "obs"] |>
+  set_labels() |>
+  ggplot(aes(month, estimate)) +
+  geom_ribbon(aes(ymin = low, ymax = high), alpha = 0.2) +
+  geom_line(aes(y = base), color = "gray") +
+  geom_line() +
+  scale_y_continuous(variable_labels["area"], labels = labels_extent) +
+  scale_x_month() +
+  coord_cartesian(clip = "off") +
+  facet_wrap(~model, ncol = 2)
+```
+
+
+
+```{r}
+#| label: fig-bias
+sims |>
+  _[, .(file = cdo_ymonmean(file)[]), by = model] |>
+  _[, base := file[model == "obs"]] |>
+  _[model != "obs"] |>
+  _[, cdo_sub(file, base) |> cdo_selmonth("2,9") |> _[], by = model] |>
+  _[, ReadNetCDF(V1, "aice"), by = model] |>
+  _[, month := month(time)] |>
+  ggplot(aes(x, y)) +
+  with_args(
+    list(aes(z = aice), breaks = AnchorBreaks(exclude = 0, binwidth = 0.1)),
+    list(
+      geom_contour_fill(aes(z = aice, fill = ..level..)),
+      geom_contour_tanaka()
+    )
   ) +
-  geom_contour_tanaka(
-    breaks = AnchorBreaks(0),
-    aes(z = daice2)
+  geom_antarctica_fill +
+  as.discretised_scale(scale_fill_gradient2)("Bias") +
+  scales_antarctica +
+  facet_grid(
+    month ~ model,
+    labeller = labeller(month = labels_month, model = labels_models)
   ) +
-  geom_contour2(
-    breaks = 0,
-    aes(z = daice2),
+  wide_legend
+```
+
+```{r}
+#| label: fig-area-anomalies
+area |>
+  _[year(time) > 1983] |>
+  copy() |>
+  _[,
+    area := area - mean(area[year(time) %between% c(1990, 2010)]),
+    by = .(month(time), model)
+  ] |>
+  _[, base := area[model == "obs"], by = time] |>
+  _[model != "obs"] |>
+  set_labels() |>
+  ggplot(aes(time, area)) +
+  geom_line(aes(y = base), color = "gray") +
+  geom_line() +
+  # scale_color_models +
+  scale_y_continuous(
+    paste0(variable_labels["area"], " anomaly"),
+    labels = labels_extent
   ) +
+  scale_x_date(breaks = breaks_by("10 years"), date_labels = "%Y") +
+  facet_wrap(~model)
+```
+
+
+
+
+```{r}
+#| label: cors
+cor_w_obs <- (function(file) {
+  data <- ReadNetCDF(file, "aice") |>
+    normalise_names() |>
+    _[, time := as.Date(time)]
+  data[daice, on = c("time", "x", "y")] |>
+    _[!is.na(aice + i.aice)] |>
+    _[, .(estimate = cor(aice, i.aice), n = .N), by = .(x, y, month(time))]
+}) |>
+  memoise::memoise(cache = cachem::cache_disk(here::here("data/temp/cache")))
+
+cors <- sims |>
+  _[model != "obs"] |>
+  _[, cor_w_obs(file), by = .(model)]
+```
+
+```{r}
+#| label: fig-spatial-cor
+#| fig-height: 6
+#| fig-width: 5
+cors |>
+  _[month %in% c(2, 9)] |>
+  na.omit() |>
+  ggplot(aes(x, y)) +
+  # geom_contour_fill(aes(z = estimate, fill = ..level..)) +
+  with_args(
+    list(aes(z = estimate), breaks = seq(-1, 1, by = 0.2)),
+    list(
+      geom_contour_fill(aes(z = estimate, fill = ..level..)),
+      geom_contour_tanaka()
+    )
+  ) +
+  geom_antarctica_fill +
+  scale_fill_divergent_discretised("Correlation") +
+  scales_antarctica +
+  facet_grid(
+    month ~ model,
+    labeller = labeller(month = labels_month, variable = labels_models)
+  ) +
+  wide_legend
+```
+
+
+```{r}
+#| label: fig-mean-cor
+#| fig-height: 4
+#| fig-width: 5
+
+gridarea <- cdo_gridarea(CDRv6())[] |>
+  ReadNetCDF(c("cell_area"))
+
+cors |>
+  gridarea[i = _, on = .NATURAL] |>
+  _[,
+    .(estimate = weighted.mean(estimate, w = cell_area, na.rm = TRUE)),
+    by = .(month, model)
+  ] |>
+  ggplot(aes(month, estimate)) +
+  with_args(list(aes(color = model)), list(geom_line(), geom_point())) +
+  scale_color_models +
+  scale_x_month() +
+  scale_y_continuous("Mean spatial correlation") +
+  coord_cartesian(clip = "off")
+```
+
+```{r}
+#| label: fig-sd
+sims |>
+  _[,
+    cdo_ymonstd(file)[] |>
+      ReadNetCDF(c(sd = "aice")),
+    by = model
+  ] |>
+  _[, month := month(time)] |>
+  _[month %in% c(2, 9)] |>
+  na.omit() |>
+  ggplot(aes(x, y)) +
+  with_args(
+    list(aes(z = sd)),
+    list(
+      geom_contour_fill(aes(z = sd, fill = ..level..)),
+      geom_contour_tanaka()
+    )
+  ) +
+  geom_antarctica_fill +
+  as.discretised_scale(scale_fill_viridis_c)("Standard deviation") +
+  scales_antarctica +
+  facet_grid(
+    month ~ model,
+    labeller = labeller(month = labels_month, variable = labels_models)
+  ) +
+  wide_legend
+```
+
+
+
+```{r}
+
+stl_anom <- function(x, s.window = 7, t.window = 10) {
+  split <- stl(ts(x, frequency = 12), s.window = 7, t.window = t.window * 12)
+
+  x - split$time.series[, 1]
+}
+```
+
+```{r}
+cmip_files <- cmip6()
+```
+
+```{r}
+cmip_files[variable == "siconc"] |>
+  # _[startsWith(model, "ACCESS-CM")] |>
+  _[,
+    cdo_fldint(file)[] |>
+      ReadNetCDF(c(area = "siconc")),
+    by = .(model, experiment)
+  ] |>
+  # _[year(time) < 2100] |>
+  _[,
+    .(area_y = mean(area)),
+    by = .(experiment, time = lubridate::floor_date(time, "1 year"), model)
+  ] |>
+  set_labels() |>
+  ggplot(aes(time, area_y)) +
+  geom_line(aes(color = experiment, group = 1)) +
+  facet_wrap(~model)
+```
+
+```{r}
+cmip_grid <- cmip_files |>
+  dcast(experiment + model ~ variable, value.var = "file") |>
+  _[,
+    grid_ice(siconc, tas, time = c(NA, NA)),
+    by = .(experiment, model)
+  ]
+
+
+cmip_grid_split <- rbind(
+  cmip_files |>
+    _[experiment == "historical"] |>
+    _[, experiment := "historical_new"] |>
+    dcast(experiment + model ~ variable, value.var = "file") |>
+    _[,
+      grid_ice(siconc, tas, time = c("1983-01-01", NA)),
+      by = .(experiment, model)
+    ],
+  cmip_files |>
+    dcast(experiment + model ~ variable, value.var = "file") |>
+    na.omit() |>
+    _[experiment == "historical"] |>
+    _[, experiment := "historical_old"] |>
+    _[,
+      grid_ice(siconc, tas, time = c(NA, "1983-01-01")),
+      by = .(experiment, model)
+    ]
+)
+```
+
+```{r}
+cmip_rmse <- cmip_grid |>
+  _[grid_monthly, on = c("t2m", "aice")] |>
+  _[n > 10 & i.n > 10] |>
+  _[!is.na(experiment)] |>
+  _[, rmse(daice, i.daice), by = .(model, experiment)]
+
+rmse_factor <- cmip_rmse[
+  experiment == "historical",
+  .(model, rmse = estimate)
+] |>
+  _[order(rmse)]
+
+
+model_order <- function(model) {
+  factor(model, levels = rmse_factor$model)
+}
+
+cmip_grid[, model := model_order(model)]
+cmip_grid_split[, model := model_order(model)]
+```
+
+```{r}
+#| label: fig-cmip-historical
+plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
+
+plot_daice_monthly2@layers <- plot_daice_monthly2@layers[1:3]
+# plot_daice_monthly2@scales$scales[[
+#   3
+# ]]$name <- "Difference between\n2-metre temperature and SST (°C)"
+
+plot_daice_monthly2 +
+  cmip_grid[experiment == "historical"][, value := daice] +
   geom_contour_fill(
     aes(z = n, fill = NULL),
     breaks = c(0, 100),
@@ -660,82 +1392,125 @@ grid_monthly |>
     color = "gray30",
     alpha = 0.5
   ) +
-  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
-  scale_y_continuous(
-    "Monthly mean 2-m temperature (°C)",
-    limits = c(-15, 2.5),
-    expand = c(0, 0)
+  geom_contour2(
+    data = grid_monthly[n > 10],
+    breaks = 0,
+    colour = scales::muted("violet"),
+    label = "obs",
+    label.placer = label_placer_fraction(0.5),
+    aes(z = daice),
   ) +
-  scale_x_continuous(
-    "Monthly mean sea-ice concentration",
-    expand = c(0, 0)
+  facet_wrap(~model)
+```
+
+
+```{r}
+#| label: fig-cmip-ssp585
+plot_daice_monthly2 +
+  cmip_grid[experiment == "ssp585"][, value := daice][,
+    model := model_order(model)
+  ] +
+  geom_contour_fill(
+    aes(z = n, fill = NULL),
+    breaks = c(0, 100),
+    fill = "gray",
+    color = "gray30",
+    alpha = 0.5
   ) +
-  scale_linetype(guide = "none") +
-  wide_legend
+  geom_contour2(
+    data = cmip_grid[experiment != "ssp585"][, model := model_order(model)],
+    colour = scales::muted("violet"),
+    breaks = b,
+    aes(z = daice, linetype = factor(-sign(..level..))),
+  ) +
+  facet_wrap(~model)
 ```
 
-* Possible refinements of the model
 
-* Integration of the model
 
 
 ```{r}
-#| label: interpolate_cpp
-Rcpp::sourceCpp(here::here("analysis/random/interpolate_cpp.cpp"))
+#| label: fig-rmse-area
+area_obs <- CDRv6() |>
+  cdo_fldint() |>
+  cdo_ymonmean() |>
+  ReadNetCDF("aice") |>
+  _[, month := month(time)]
+
+cmip_files[variable == "siconc"] |>
+  _[experiment == "historical"] |>
+  # _[startsWith(model, "ACCESS-CM")] |>
+  _[,
+    cdo_fldint(file)[] |>
+      ReadNetCDF(c(area = "siconc")),
+    by = .(model, experiment)
+  ] |>
+  _[year(time) > 1981] |>
+  _[, .(area = mean(area)), by = .(model, month(time))] |>
+  _[, model := model_order(model)] |>
+  _[area_obs, on = "month"] |>
+  _[, rmse(aice, area / 100), by = model] |>
+  _[rmse_factor, on = "model"] |>
+  ggplot(aes(estimate, rmse)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ggrepel::geom_text_repel(aes(label = model)) +
+  scale_y_continuous("RMSE of sea ice area seasonal cycle") +
+  scale_x_continuous("RMSE of daice temperature")
 ```
 
-
-```{r}
-#| label: era_temp_fun
-era_temp_fun <- function(data) {
-  t2m_matrix <- data[, .(time, lon, lat, t2m)] |>
-    metR:::.tidy2matrix(lon + lat ~ time, value.var = "t2m") |>
-    _$matrix
-  t2m_time <- 0:(ncol(t2m_matrix) - 1)
-
-  function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
-}
-
-```
-
-
-```{r}
-#| label: poly_interactions
-Rcpp::sourceCpp(here::here("analysis/random/poly_interactions_cpp.cpp"))
-```
-
-
-```{r}
-#| label: d_ice
-d_ice <- function(coefs, inflation = 1) {
-  force(coefs)
-  force(inflation)
-  function(state, time, forcing) {
-    t2m <- forcing(time)
-    x <- poly_interactions_cpp(t2m, state, 3)
-
-    d_ice <- as.vector(coefs %*% t(x)) * inflation
-
-    d_ice <- fifelse(state >= 1 & d_ice > 0, 0, d_ice)
-    d_ice <- fifelse(state <= 0 & d_ice < 0, 0, d_ice)
-    d_ice
-  }
-}
-```
-
-```{r}
-#| label: integration
-source(here::here("R/integration.R"))
-```
-
-* Extent 
-
-* Correlation, RMSE and Bias. (w/ comparisons with ACCESS-S2)
 
 ## Conclusions
 
 
 
+## Suppolementary figures
+
+
+
+```{r}
+#| label: fig-cmip-historical_old
+plot_daice_monthly2 +
+  cmip_grid_split[experiment == "historical_old"][, value := daice] +
+  geom_contour_fill(
+    aes(z = n, fill = NULL),
+    breaks = c(0, 100),
+    fill = "gray",
+    color = "gray30",
+    alpha = 0.5
+  ) +
+  geom_contour2(
+    data = grid_monthly[n > 10],
+    breaks = 0,
+    colour = scales::muted("violet"),
+    label = "obs",
+    label.placer = label_placer_fraction(0.5),
+    aes(z = daice),
+  ) +
+  facet_wrap(~model)
+```
+
+```{r}
+#| label: fig-cmip-historical_new
+plot_daice_monthly2 +
+  cmip_grid_split[experiment == "historical_new"][, value := daice] +
+  geom_contour_fill(
+    aes(z = n, fill = NULL),
+    breaks = c(0, 100),
+    fill = "gray",
+    color = "gray30",
+    alpha = 0.5
+  ) +
+  geom_contour2(
+    data = grid_monthly[n > 10],
+    breaks = 0,
+    colour = scales::muted("violet"),
+    label = "obs",
+    label.placer = label_placer_fraction(0.5),
+    aes(z = daice),
+  ) +
+  facet_wrap(~model)
+```
 ## Acknowledgments
 
 Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.

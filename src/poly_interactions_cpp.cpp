@@ -1,70 +1,55 @@
+// [[Rcpp::plugins(openmp)]]
 #include <Rcpp.h>
+#include <omp.h>
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-NumericMatrix poly_interactions_cpp(NumericVector x1, NumericVector x2, int degree) {
-  int n = x1.size();
-  if(n != x2.size()) {
-    Rcpp::stop("x1 and x2 must have the same length");
-  }
-  
-  // Calculate total number of columns:
-  // 1 (intercept) + degree (x1 terms) + degree (x2 terms) + degree*degree (interactions)
-  int total_cols = 1 + degree + degree + degree * degree;
-  NumericMatrix result(n, total_cols);
-  
-  int col_idx = 0;
-  
-  // Column 1: Intercept
-  for(int i = 0; i < n; i++) {
-    result(i, col_idx) = 1.0;
-  }
-  col_idx++;
-  
-  // Build polynomial matrices for both variables
-  NumericMatrix poly1(n, degree);
-  NumericMatrix poly2(n, degree);
-  
-  // Fill polynomial matrices efficiently
-  for(int i = 0; i < n; i++) {
-    double x1_val = x1[i];
-    double x2_val = x2[i];
-    double x1_power = x1_val;
-    double x2_power = x2_val;
-    
-    for(int j = 0; j < degree; j++) {
-      poly1(i, j) = x1_power;
-      poly2(i, j) = x2_power;
-      x1_power *= x1_val;
-      x2_power *= x2_val;
+NumericVector poly_interactions_dot_cpp(NumericVector x1, NumericVector x2,
+                                          NumericVector coefficients,
+                                          int nthreads = 0) {
+    constexpr int ncol = 16; // (3+1) x (3+1) full tensor product
+
+    if (coefficients.size() != ncol)
+        stop("coefficients must have length 16");
+
+    int n = x1.size();
+    NumericVector out(n);
+
+    const double* px1 = x1.begin();
+    const double* px2 = x2.begin(); // state
+    const double* b   = coefficients.begin();
+    double* outp = out.begin();
+
+    if (nthreads > 0) omp_set_num_threads(nthreads);
+
+    #pragma omp parallel for schedule(static)
+    for (int r = 0; r < n; ++r) {
+        double x = px1[r], y = px2[r];
+
+        double px1_[4], px2_[4];
+        px1_[0] = px2_[0] = 1.0;
+        px1_[1] = x;           px2_[1] = y;
+        px1_[2] = px1_[1] * x; px2_[2] = px2_[1] * y;
+        px1_[3] = px1_[2] * x; px2_[3] = px2_[2] * y;
+
+        // order: intercept, x1^1..3, x2^1..3, then x1^i:x2^j (x1 varies fastest)
+        double s = b[0];
+        s += b[1]*px1_[1] + b[2]*px1_[2] + b[3]*px1_[3];
+        s += b[4]*px2_[1] + b[5]*px2_[2] + b[6]*px2_[3];
+        s += b[7]*px1_[1]*px2_[1] + b[8]*px1_[2]*px2_[1] + b[9]*px1_[3]*px2_[1];
+        s += b[10]*px1_[1]*px2_[2] + b[11]*px1_[2]*px2_[2] + b[12]*px1_[3]*px2_[2];
+        s += b[13]*px1_[1]*px2_[3] + b[14]*px1_[2]*px2_[3] + b[15]*px1_[3]*px2_[3];
+
+        if ((y >= 1.0 && s > 0.0) || (y <= 0.0 && s < 0.0)) s = 0.0;
+
+        if (s > (1 - y)) {
+            s = (1-y);
+        } else if (s < -y) {
+            s = -y;
+        }
+
+        outp[r] = s;
     }
-  }
-  
-  // Add x1 polynomial terms
-  for(int j = 0; j < degree; j++) {
-    for(int i = 0; i < n; i++) {
-      result(i, col_idx) = poly1(i, j);
-    }
-    col_idx++;
-  }
-  
-  // Add x2 polynomial terms
-  for(int j = 0; j < degree; j++) {
-    for(int i = 0; i < n; i++) {
-      result(i, col_idx) = poly2(i, j);
-    }
-    col_idx++;
-  }
-  
-  // Add all interactions (x1^i * x2^j for i,j = 1 to degree)
-  for(int j2 = 0; j2 < degree; j2++) {        // x2 powers
-    for(int j1 = 0; j1 < degree; j1++) {      // x1 powers
-      for(int i = 0; i < n; i++) {
-        result(i, col_idx) = poly1(i, j1) * poly2(i, j2);
-      }
-      col_idx++;
-    }
-  }
-  
-  return result;
+
+    return out;
 }

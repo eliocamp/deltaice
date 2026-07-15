@@ -1,5 +1,3 @@
-source(here::here("R/functions.R"))
-
 cdo_apply <- function(ifile, op, ofile = NULL) {
   rcdo::cdo_operator("apply", params = c("op"), Inf, 1) |>
     rcdo::cdo(
@@ -10,106 +8,158 @@ cdo_apply <- function(ifile, op, ofile = NULL) {
 }
 
 CDR_grid <- function() {
-  here::here("data/raw/nsidc_grid.txt")
-}
-
-CDR <- function() {
-  file <- here::here("data/raw/cdr.nc")
-  years <- 1981:2025
-
-  if (file.exists(file)) {
-    return(file)
-  }
-
-  urls <- paste0(
-    "https://polarwatch.noaa.gov/erddap/griddap/nsidcG02202v4sh1day.nc?cdr_seaice_conc[(",
-    years,
-    "-01-01T00:00:00Z):1:(",
-    years,
-    "-12-31T00:00:00Z)][(4350000.0):1:(-3950000.0)][(-3950000.0):1:(3950000.0)]"
-  )
-
-  files <- glue::glue("data/temp/CDR/{years}.nc")
-  dir.create(dirname(files[1]), showWarnings = FALSE, recursive = TRUE)
-
-  r <- lapply(seq_along(urls), \(i) {
-    curl::multi_download(urls[i], files[i], resume = TRUE)
-  })
-
-  files |>
-    rcdo::cdo_mergetime() |>
-    cdo_chname("cdr_seaice_conc", "aice") |>
-    cdo_del29feb() |>
-    rcdo::cdo_setgrid(CDR_grid()) |>
-    rcdo::cdo_execute(output = file, options = c("-L", "-O"))
-
-  remove(files)
+  file <- "data/raw/nsidc_grid.txt"
+  rcdo::cdo_griddes(CDR()) |>
+    rcdo::cdo_execute(cache = FALSE) |>
+    writeLines(file)
   return(file)
 }
 
+CDR <- function() {
+  old <- rcdo::cdo_cache_set(here::here("data/temp"))
+  on.exit(rcdo::cdo_cache_set(old))
 
-ERA5_t2m <- function() {
-  temp_era_full <- here::here("data/derived/era5_temp_antarctic.nc")
+  out <- here::here("data/derived/cdr_monthly.nc")
 
-  if (file.exists(temp_era_full)) {
-    return(temp_era_full)
+  # Short-circuit so I can delete the daily version
+  if (file.exists(out)) {
+    return(out)
   }
 
-  files <- "/g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc" |>
-    Sys.glob()
-
-  years <- as.numeric(dir_part(files, 1))
-
-  files <- files[years > 1979]
-
-  files |>
-    furrr::future_map_chr(
-      \(x) {
-        x |>
-          rcdo::cdo_remapbil(CDR_grid()) |>
-          rcdo::cdo_daymean() |>
-          rcdo::cdo_execute(cache = TRUE)
-      }
-    ) |>
-    rcdo::cdo_mergetime() |>
-    rcdo::cdo_execute(
-      output = temp_era_full,
-      options = "-O -b f32",
-      cache = TRUE
-    )
-  return(temp_era_full)
+  icecdr::cdr_antarctic_daily(
+    date_range = c(1981, 2023),
+    file = "cdr_daily.nc",
+    dir = here::here("data/raw/cdr"),
+    use_cache = TRUE,
+    version = 5,
+  ) |>
+    icecdr::cdr_fix() |>
+    rcdo::cdo_monmean() |>
+    rcdo::cdo_setday(1) |>
+    rcdo::cdo_settime("00:00:00") |>
+    rcdo::cdo_execute(output = out)
 }
 
+
+CDRv4 <- function() {
+  old <- rcdo::cdo_cache_set(here::here("data/temp"))
+  on.exit(rcdo::cdo_cache_set(old))
+
+  out <- here::here("data/derived/cdrv4_monthly.nc")
+
+  # Short-circuit so I can delete the daily version
+  if (file.exists(out)) {
+    return(out)
+  }
+
+  icecdr::cdr_antarctic_daily(
+    date_range = c(1981, 2023),
+    file = "cdr_daily_v4.nc",
+    dir = here::here("data/raw/cdrv4"),
+    use_cache = TRUE,
+    version = 4,
+  ) |>
+    icecdr::cdr_fix() |>
+    rcdo::cdo_monmean() |>
+    rcdo::cdo_setday(1) |>
+    rcdo::cdo_settime("00:00:00") |>
+    rcdo::cdo_execute(output = out)
+}
+
+
+CDRv6 <- function() {
+  old <- rcdo::cdo_cache_set(here::here("data/temp"))
+  on.exit(rcdo::cdo_cache_set(old))
+
+  out <- here::here("data/derived/cdrv6_monthly.nc")
+
+  # Short-circuit so I can delete the daily version
+  if (file.exists(out)) {
+    return(out)
+  }
+
+  icecdr::cdr_antarctic_daily(
+    date_range = c(1981, 2023),
+    file = "cdr_daily_v6.nc",
+    dir = here::here("data/raw/cdrv6"),
+    use_cache = TRUE,
+    version = 6,
+  ) |>
+    icecdr::cdr_fix() |>
+    rcdo::cdo_monmean() |>
+    rcdo::cdo_setday(1) |>
+    rcdo::cdo_settime("00:00:00") |>
+    rcdo::cdo_execute(output = out)
+}
+
+# ERA5_t2m <- function() {
+#   box::use(R / functions[dir_part])
+#   temp_era_full <- here::here("data/derived/era5_temp_antarctic.nc")
+
+#   if (file.exists(temp_era_full)) {
+#     return(temp_era_full)
+#   }
+
+#   files <- "/g/data/rt52/era5/single-levels/monthly-averaged/2t/*/*.nc" |>
+#     Sys.glob()
+
+#   years <- as.numeric(dir_part(files, 1))
+
+#   files <- files[years > 1979]
+
+#   files |>
+#     furrr::future_map_chr(
+#       \(x) {
+#         x |>
+#           rcdo::cdo_remapbil(CDR_grid()) |>
+#           rcdo::cdo_daymean() |>
+#           rcdo::cdo_execute(cache = TRUE)
+#       }
+#     ) |>
+#     rcdo::cdo_mergetime() |>
+#     rcdo::cdo_execute(
+#       output = temp_era_full,
+#       options = "-O -b f32",
+#       cache = TRUE
+#     )
+#   return(temp_era_full)
+# }
 
 ERA5_sst <- function() {
-  temp_era_full <- here::here("data/derived/era5_sst_antarctic.nc")
+  old <- rcdo::cdo_cache_set(here::here("data/temp/cache"))
+  on.exit(rcdo::cdo_cache_set(old))
+  box::use(R / functions[dir_part])
+  temp_era_full <- here::here("data/derived/era5_sst_antarctic_mon.nc")
 
-  files <- "/g/data/rt52/era5/single-levels/reanalysis/sst/*/*.nc" |>
+  files <- "/g/data/rt52/era5/single-levels/monthly-averaged/sst/*/*.nc" |>
     Sys.glob()
 
   years <- as.numeric(dir_part(files, 1))
 
   files <- files[years > 1979]
-
+  grid <- CDR_grid()
   files |>
-    furrr::future_map_chr(
+    lapply(
       \(x) {
         x |>
-          rcdo::cdo_remapbil(CDR_grid()) |>
-          rcdo::cdo_daymean() |>
-          rcdo::cdo_execute(cache = TRUE)
+          rcdo::cdo_remapbil(grid = grid)
       }
     ) |>
     rcdo::cdo_mergetime() |>
+    rcdo::cdo_setday(1) |>
+    rcdo::cdo_settime("00:00:00") |>
     rcdo::cdo_execute(
       output = temp_era_full,
-      options = "-O -b f32",
+      options = "-O  -L -b f32",
       cache = TRUE
     )
   return(temp_era_full)
 }
 
-ERA5_t2m_mon <- function() {
+ERA5_t2m <- function() {
+  old <- rcdo::cdo_cache_set(here::here("data/temp/cache"))
+  on.exit(rcdo::cdo_cache_set(old))
+  box::use(R / functions[dir_part])
   temp_era_full <- here::here("data/derived/era5_temp_antarctic_mon.nc")
 
   files <- "/g/data/rt52/era5/single-levels/monthly-averaged/2t/*/*.nc" |>
@@ -118,23 +168,59 @@ ERA5_t2m_mon <- function() {
   years <- as.numeric(dir_part(files, 1))
 
   files <- files[years > 1979]
+  grid <- CDR_grid()
 
   files |>
-    furrr::future_map_chr(
+    lapply(
       \(x) {
         x |>
-          rcdo::cdo_remapbil(CDR_grid()) |>
-          rcdo::cdo_execute(cache = TRUE)
+          rcdo::cdo_remapbil(grid = grid)
       }
     ) |>
     rcdo::cdo_mergetime() |>
+    rcdo::cdo_setday(1) |>
+    rcdo::cdo_settime("00:00:00") |>
     rcdo::cdo_execute(
       output = temp_era_full,
-      options = "-O -b f32",
+      options = "-O -L -b f32",
       cache = TRUE
     )
   return(temp_era_full)
 }
+
+
+ERA5_t2mdaily <- function() {
+  old <- rcdo::cdo_cache_set(here::here("data/temp/cache"))
+  on.exit(rcdo::cdo_cache_set(old))
+  box::use(R / functions[dir_part])
+  temp_era_full <- here::here("data/derived/era5_temp_antarctic_day.nc")
+
+  files <- "/g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc" |>
+    Sys.glob()
+
+  years <- as.numeric(dir_part(files, 1))
+
+  files <- files[years > 1979]
+  grid <- CDR_grid()
+
+  files |>
+    lapply(
+      \(x) {
+        x |>
+          rcdo::cdo_remapbil(grid = grid) |>
+          rcdo::cdo_daymean()
+      }
+    ) |>
+    rcdo::cdo_mergetime() |>
+    rcdo::cdo_settime("00:00:00") |>
+    rcdo::cdo_execute(
+      output = temp_era_full,
+      options = "-O -L -b f32",
+      cache = TRUE
+    )
+  return(temp_era_full)
+}
+
 
 # ERA5 <- function() {
 #   file_raw <- here::here("data/raw/era5_ic.nc")
@@ -182,6 +268,7 @@ ERA5_t2m_mon <- function() {
 # }
 
 S2_reanalysis <- function() {
+  box::use(R / functions[cdo_del29feb])
   file <- here::here("data/derived/access-s2_reanalylsis.nc")
 
   if (file.exists(file)) {
@@ -217,155 +304,120 @@ S2_reanalysis <- function() {
     rcdo::cdo_execute(output = file, options = "-L")
 }
 
-hindcast <- function(forecast_times, model, members = 1:9, variable = "aice") {
-  members <- ifelse(
-    members == "em",
-    members,
-    formatC(as.numeric(members), width = 2, flag = "0")
-  )
+hindcast <- function(forecast_times, members = 1:9) {
+  members <- formatC(members, width = 2, flag = "0")
 
   data <- data.table::CJ(forecast_time = forecast_times, member = members)
 
   raw_files <- here::here(
-    "data/derived/hindcast",
-    variable,
-    model,
-    data$forecast_time,
-    paste0(formatC(data$member, width = 2, flag = "0"), ".nc")
+    "data/raw/hindcast",
+    format(data$forecast_time, '%Y-%m-%d'),
+    paste0(data$member, ".nc")
   )
-  raw_files[file.exists(raw_files)]
+  data$file <- raw_files
+
+  data[file.exists(file)]
 }
 
-OSI <- function() {
-  years <- 1981:2020
-  file <- here::here("data/derived/OSI.nc")
 
-  if (file.exists(file)) {
-    return(file)
+s2 <- function() {
+  out <- here::here("data/derived/hindcast_1month.nc")
+  if (file.exists(out)) {
+    return(out)
   }
 
-  dir <- here::here("data/temp/osi/")
-  dir.create(dir, FALSE, TRUE)
-  requests <- lapply(years, \(year) {
-    raw_file <- paste0("OSI_", year, ".zip")
+  forecast_times <- seq(
+    as.Date("1981-01-01"),
+    as.Date("2018-12-01"),
+    by = "1 month"
+  )
+  hindcasts <- hindcast(forecast_times, members = "em")
 
-    if (file.exists(here::here(dir, raw_file))) {
-      return(NULL)
-    }
+  hindcasts[, month := data.table::month(forecast_time)]
 
-    list(
-      dataset_short_name = "satellite-sea-ice-concentration",
-      variable = "all",
-      version = "v3",
-      sensor = "ssmis",
-      origin = "eumetsat_osi_saf",
-      region = "southern_hemisphere",
-      cdr_type = "cdr",
-      temporal_aggregation = "daily",
-      year = paste0(year),
-      month = c(
-        "01",
-        "02",
-        "03",
-        "04",
-        "05",
-        "06",
-        "07",
-        "08",
-        "09",
-        "10",
-        "11",
-        "12"
-      ),
-      day = c(
-        "01",
-        "02",
-        "03",
-        "04",
-        "05",
-        "06",
-        "07",
-        "08",
-        "09",
-        "10",
-        "11",
-        "12",
-        "13",
-        "14",
-        "15",
-        "16",
-        "17",
-        "18",
-        "19",
-        "20",
-        "21",
-        "22",
-        "23",
-        "24",
-        "25",
-        "26",
-        "27",
-        "28",
-        "29",
-        "30",
-        "31"
-      ),
-      target = raw_file
-    )
-  })
-  requests <- Filter(Negate(is.null), requests)
+  hindcasts[,
+    .(op = list(rcdo::cdo_selmonth(file, month) |> rcdo::cdo_monmean())),
+    by = .(forecast_time, member, month)
+  ] |>
+    _$op |>
+    rcdo::cdo_mergetime() |>
+    rcdo::cdo_setday(1) |>
+    rcdo::cdo_settime("00:00:00") |>
+    rcdo::cdo_execute(out = out, cache = TRUE)
+}
 
-  if (length(requests) != 0) {
-    res <- ecmwfr::wf_request_batch(
-      requests,
-      retry = 1,
-      workers = 20,
-      path = dir
-    )
-  }
 
-  files_year <- vapply(years, FUN.VALUE = character(1), \(year) {
-    in_file <- file.path(dir, paste0("OSI_", year, ".zip"))
-    out_file <- file.path(dir, paste0(year, "merged"))
+cmip_augment <- function(files) {
+  box::use(R / functions[dir_part])
+  data.table::data.table(
+    file = files,
+    model = dir_part(files, 7),
+    experiment = dir_part(files, 6),
+    variable = dir_part(files, 3),
+    member = dir_part(files, 5),
+    version = dir_part(files, 1)
+  ) |>
+    _[version != "latest"] |>
+    _[, version := as.numeric(gsub("v", "", version))]
+}
 
-    if (file.exists(out_file)) {
-      return(out_file)
-    }
-    message("Joining year ", year)
-    fs <- unzip(in_file, exdir = tempdir())
-    dates <- seq(
-      as.Date(paste0(year, "-01-01")),
-      as.Date(paste0(year, "-12-31")),
-      by = "1 day"
-    )
-    files <- format(dates, "ice_conc_sh_ease2-250_cdr-v3p0_%Y%m%d1200.nc")
+cmip_latest_version <- function(data) {
+  data[,
+    .SD[version == max(version)],
+    by = .(model, experiment, variable, member)
+  ]
+}
 
-    exists <- (files %in% basename(fs))
-    missing <- !exists
+cmip_get <- function(variable, experiment, member = "r1i1p1f1", model = "*") {
+  data.table::CJ(
+    variable = variable,
+    experiment = experiment,
+    source = c("oi10/replicas", "fs38/publications")
+  ) |>
+    glue::glue_data(
+      "/g/data/{source}/CMIP6/*/*/{model}/{experiment}/{member}/*mon/{variable}/gn/*/*.nc"
+    ) |>
+    Sys.glob() |>
+    cmip_augment() |>
+    _[]
+}
 
-    if (any(missing)) {
-      extras <- fs[1] |>
-        rcdo::cdo_setvrange(200, 300) |>
-        rcdo::cdo_duplicate(length(dates)) |>
-        rcdo::cdo_settaxis(as.character(min(dates)), "12:00:00", "1day") |>
-        rcdo::cdo_seltimestep(paste0(which(missing), collapse = ",")) |>
-        rcdo::cdo_execute(options = "-L -f nc -s")
-    } else {
-      extras <- NULL
-    }
 
-    as.list(c(extras, fs)) |>
-      rcdo::cdo_mergetime() |>
-      rcdo::cdo_selname("ice_conc") |>
-      cdo_chname("ice_conc", "aice") |>
-      rcdo::cdo_settaxis(as.character(min(dates)), "12:00:00", "1day") |>
-      cdo_del29feb() |>
-      remap_cdr() |>
-      rcdo::cdo_execute(options = c("-L -O -s"), output = out_file)
-  })
-
-  files_year |>
+cmip_selantmerge <- function(files) {
+  dir <- here::here("data/derived/cmip6")
+  out <- file.path(dir, basename(files[1]))
+  grid <- CDR_grid()
+  lapply(files, \(x) {
+    x |>
+      rcdo::cdo_remapbil("r360x180") |>
+      rcdo::cdo_sellonlatbox(0, 360, -90, -50)
+  }) |>
     rcdo::cdo_mergetime() |>
     rcdo::cdo_divc(100) |>
-    rcdo::cdo_execute(output = file, options = c("-L -O"))
+    rcdo::cdo_execute(options = "-L -O", out = out)
+}
+
+cmip_complete <- function(data) {
+  incomplete <- data |>
+    tidyr::complete(model, experiment, member, variable) |>
+    data.table::as.data.table() |>
+    _[is.na(file)] |>
+    _[, unique(model)]
+
+  data[!(model %in% incomplete)][]
+}
+
+cmip6 <- function() {
+  cmip_get(
+    variable = c("tas", "siconc"),
+    experiment = c("historical", "ssp585")
+  ) |>
+    cmip_latest_version() |>
+    cmip_complete() |>
+    _[,
+      .(file = list(future::future(cmip_selantmerge(file)))),
+      by = .(experiment, model, variable)
+    ] |>
+    _[, file := unlist(future::value(file))] |>
+    _[]
 }

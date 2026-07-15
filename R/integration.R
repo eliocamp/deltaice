@@ -18,36 +18,51 @@ rk4 <- function(model, state, time, forcing, dt) {
 }
 
 
+# euler <- function(model, state, time, forcing, dt) {
+
+# }
+
+# times is in days.
 evolve_ <- function(
   start,
   model,
+  forcing,
   start_time,
   end_time,
   dt,
-  method = rk4,
-  forcing
+  method = rk4
 ) {
+  grid <- start[, .(x, y)]
   time <- seq(start_time, end_time, by = dt)
   N <- length(time)
 
-  pb <- txtProgressBar(min = 0, max = N - 1)
+  pb <- utils::txtProgressBar(min = start_time, max = end_time)
+  time_out <- time[time == as.integer(time)]
 
-  grid <- start[, .(lon, lat)]
-  history <- lapply(time, \(t) copy(grid)[, time := t])
+  history <- lapply(time_out, \(t) data.table::copy(grid)[, t := t])
 
   history[[1]]$aice <- start$aice
-  for (n in seq_len(N - 1)) {
-    history[[n + 1]]$aice <- method(
+  state <- start$aice
+  save_index <- 1
+  for (t in time[-1]) {
+    state <- method(
       model,
-      history[[n]]$aice,
-      time[n],
+      state,
+      t,
       forcing,
       dt
     )
-    setTxtProgressBar(pb, n)
+
+    if (t == as.integer(t)) {
+      save_index <- save_index + 1
+      history[[save_index]]$aice <- state
+    }
+
+    if (interactive()) utils::setTxtProgressBar(pb, t)
   }
   close(pb)
   history <- data.table::rbindlist(history)
 }
 
-evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
+
+# evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
