@@ -353,23 +353,23 @@ smooth_grid[, daice := clamp_daice(daice, aice)]
 
 b <- seq(-1, 1, by = 0.1)
 
-grid_monthly |>
-  # _[n > 200] |>
-  ggplot(aes(aice, t2m)) +
-  geom_contour_fill(aes(z = daice), breaks = b) +
-  geom_contour2(
-    aes(z = daice, linetype = factor(sign(-..level..))),
-    breaks = b,
-    data = smooth_grid
-  ) +
-  geom_contour2(
-    aes(z = daice),
-    breaks = 0,
-    linewidth = 2,
-    data = smooth_grid
-  ) +
-  # ylim(c(-20, 1))+
-  scale_fill_gradient2()
+# grid_monthly |>
+#   # _[n > 200] |>
+#   ggplot(aes(aice, t2m)) +
+#   geom_contour_fill(aes(z = daice), breaks = b) +
+#   geom_contour2(
+#     aes(z = daice, linetype = factor(sign(-..level..))),
+#     breaks = b,
+#     data = smooth_grid
+#   ) +
+#   geom_contour2(
+#     aes(z = daice),
+#     breaks = 0,
+#     linewidth = 2,
+#     data = smooth_grid
+#   ) +
+#   # ylim(c(-20, 1))+
+#   scale_fill_gradient2()
 
 # old_coef <- c(
 #   -0.082,
@@ -416,6 +416,7 @@ tf_model <- lm(y ~ poly(x, degree = 4, raw = TRUE), data = tf)
 
 ```{r}
 #| label: daice_cpp
+#| cache: false
 Rcpp::sourceCpp(here::here("src/daice.cpp"))
 ```
 
@@ -560,6 +561,7 @@ mod_damping <- minpack.lm::nlsLM(
 
 ```{r}
 #| label: poly_interactions_cpp
+#| cache: false
 Rcpp::sourceCpp(here::here("src/poly_interactions_cpp.cpp"))
 ```
 
@@ -964,7 +966,7 @@ To explore how much can be explained, we integrate the models in time using 2-me
 
 ```{r}
 #| label: interpolate_cpp
-#| cache: FALSE
+#| cache: false
 Rcpp::sourceCpp(here::here("src/interpolate_cpp.cpp"))
 ```
 
@@ -995,7 +997,7 @@ evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
 
 ```{r}
 #| label: forcing_temp
-#| cache: FALSE
+#| cache: false
 time_translate <- data.table(
   time = seq(
     as.Date(min(daice[!is.na(aice)]$time)),
@@ -1016,7 +1018,7 @@ forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
 
 ```{r}
 #| label: lookup
-#| cache: FALSE
+#| cache: false
 Sys.setenv(PKG_CXXFLAGS = "-O3 -march=native -fopenmp")
 Sys.setenv(PKG_LIBS = "-fopenmp")
 Rcpp::sourceCpp(here::here("src/lookup.cpp"))
@@ -1061,7 +1063,7 @@ models <- list(
 ```
 
 ```{r}
-#| labels: simulate_model
+#| label: simulate_model
 simulate_model <- function(model) {
   sample <- model(stat = start$aice, time = 0, forcing = forcing_temp)
   hash <- digest::digest(sample, algo = "xxh3_128")
