@@ -149,31 +149,7 @@ set_labels <- function(data) {
 ```{r}
 #| label: daice
 #| cache: false
-reldiff <- function(x) {
-  n <- length(x)
-  x[2:n] / x[1:(n - 1)]
-}
-
-ant_ice <- CDRv6() |>
-  ReadNetCDF("aice") |>
-  normalise_names() |>
-  _[, daice := c(diff(aice), NA), by = .(x, y)]
-
-temp_era_mon <- ERA5_t2m() |>
-  ReadNetCDF("t2m")
-
-sst_era_mon <- ERA5_sst() |>
-  ReadNetCDF("sst")
-
-daice <- ant_ice |>
-  _[temp_era_mon, on = .NATURAL] |>
-  _[sst_era_mon, on = .NATURAL] |>
-  _[year(time) %between% c(1983, 2024)] |>
-  _[, t2m := t2m - 273.15] |>
-  _[, sst := sst - 273.15] |>
-  _[, time := as.Date(time)]
-
-rm(ant_ice, sst_era_mon, temp_era_mon)
+daice <- daice_read()
 ```
 
 
@@ -181,7 +157,6 @@ rm(ant_ice, sst_era_mon, temp_era_mon)
 
 * CDR data source
 
-CDR doesn't do data between 0 and 0.1, so I can't reliably compute delta ice within that range. 
 
 * ACCESS-S2 data source
 
@@ -967,19 +942,19 @@ To explore how much can be explained, we integrate the models in time using 2-me
 ```{r}
 #| label: interpolate_cpp
 #| cache: false
-Rcpp::sourceCpp(here::here("src/interpolate_cpp.cpp"))
+
 ```
 
 ```{r}
 #| label: era_temp_fun
-era_temp_fun <- function(data) {
-  t2m_matrix <- data[, .(time, x, y, t2m)] |>
-    metR:::.tidy2matrix(x + y ~ time, value.var = "t2m") |>
-    _$matrix
-  t2m_time <- 0:(ncol(t2m_matrix) - 1)
+# era_temp_fun <- function(data) {
+#   t2m_matrix <- data[, .(time, x, y, t2m)] |>
+#     metR:::.tidy2matrix(x + y ~ time, value.var = "t2m") |>
+#     _$matrix
+#   t2m_time <- 0:(ncol(t2m_matrix) - 1)
 
-  function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
-}
+#   function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
+# }
 ```
 
 ```{r}
@@ -1217,14 +1192,14 @@ cors |>
   _[month %in% c(2, 9)] |>
   na.omit() |>
   ggplot(aes(x, y)) +
-  # geom_contour_fill(aes(z = estimate, fill = ..level..)) +
-  with_args(
-    list(aes(z = estimate), breaks = seq(-1, 1, by = 0.2)),
-    list(
-      geom_contour_fill(aes(z = estimate, fill = ..level..)),
-      geom_contour_tanaka()
-    )
-  ) +
+  geom_contour_fill(aes(z = estimate, fill = ..level..)) +
+  # with_args(
+  #   list(aes(z = estimate), breaks = seq(-1, 1, by = 0.2)),
+  #   list(
+  #     geom_contour_fill(aes(z = estimate, fill = ..level..)),
+  #     geom_contour_tanaka()
+  #   )
+  # ) +
   geom_antarctica_fill +
   scale_fill_divergent_discretised("Correlation") +
   scales_antarctica +
@@ -1291,25 +1266,6 @@ sims |>
 ```{r}
 #| label: cmip_files
 cmip_files <- cmip6()
-```
-
-```{r}
-# cmip_files[variable == "siconc"] |>
-#   # _[startsWith(model, "ACCESS-CM")] |>
-#   _[,
-#     cdo_fldint(file)[] |>
-#       ReadNetCDF(c(area = "siconc")),
-#     by = .(model, experiment)
-#   ] |>
-#   # _[year(time) < 2100] |>
-#   _[,
-#     .(area_y = mean(area)),
-#     by = .(experiment, time = lubridate::floor_date(time, "1 year"), model)
-#   ] |>
-#   set_labels() |>
-#   ggplot(aes(time, area_y)) +
-#   geom_line(aes(color = experiment, group = 1)) +
-#   facet_wrap(~model)
 ```
 
 ```{r}
