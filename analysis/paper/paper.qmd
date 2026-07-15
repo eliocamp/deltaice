@@ -1100,7 +1100,7 @@ simulate_model <- function(model) {
 ```
 
 ```{r}
-#| labels: sims
+#| label: sims
 sims <- lapply(models, simulate_model) |>
   c(list(obs = CDRv6(), s2 = s2()))
 
