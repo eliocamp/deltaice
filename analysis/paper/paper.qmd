@@ -124,6 +124,7 @@ proj <- "+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=63782
 
 
 ```{r}
+#| label: set_labels
 variable_labels <- c(
   aice = "Monthly mean sea ice concentration",
   t2m = "Monthly mean 2-m temperature",
@@ -393,19 +394,6 @@ grid_monthly |>
 ```
 
 
-
-```{r}
-# daice |>
-#   _[t2m < -20] |>
-#   _[, .(n = mean(daice < 0, na.rm = TRUE), N = .N), by = .(x, y)] |>
-#   _[N > 10] |>
-#   ggplot(aes(x, y)) +
-#   geom_raster(aes(fill = n)) +
-#   geom_antarctica_fill +
-#   scales_antarctica +
-#   scale_fill_gradient2(midpoint = 0.5)
-```
-
 ```{r}
 #| label: tf_model
 zero <- purrr::possibly(
@@ -571,6 +559,7 @@ mod_damping <- minpack.lm::nlsLM(
 
 
 ```{r}
+#| label: poly_interactions_cpp
 Rcpp::sourceCpp(here::here("src/poly_interactions_cpp.cpp"))
 ```
 
@@ -975,6 +964,7 @@ To explore how much can be explained, we integrate the models in time using 2-me
 
 ```{r}
 #| label: interpolate_cpp
+#| cache: FALSE
 Rcpp::sourceCpp(here::here("src/interpolate_cpp.cpp"))
 ```
 
@@ -991,6 +981,7 @@ era_temp_fun <- function(data) {
 ```
 
 ```{r}
+#| label: start
 mask <- daice[, mean(is.na(aice)), by = .(x, y)][V1 < 1][, V1 := NULL]
 start <- daice[time == time[1]] |>
   _[mask, on = .NATURAL]
@@ -1003,6 +994,8 @@ evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
 ```
 
 ```{r}
+#| label: forcing_temp
+#| cache: FALSE
 time_translate <- data.table(
   time = seq(
     as.Date(min(daice[!is.na(aice)]$time)),
@@ -1022,12 +1015,15 @@ forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
 ```
 
 ```{r}
+#| label: lookup
+#| cache: FALSE
 Sys.setenv(PKG_CXXFLAGS = "-O3 -march=native -fopenmp")
 Sys.setenv(PKG_LIBS = "-fopenmp")
 Rcpp::sourceCpp(here::here("src/lookup.cpp"))
 ```
 
 ```{r}
+#| label: d_aice
 d_ice <- function(grid) {
   if (anyNA(grid)) {
     stop("Missing values in grid")
@@ -1057,6 +1053,7 @@ lm_to_dice <- function(model) {
 ```
 
 ```{r}
+#| label: d_aice-models
 models <- list(
   model_obs = d_ice(make_grid_matrix(smooth_grid)),
   mod_simple = lm_to_dice(mod_simple)
@@ -1064,6 +1061,7 @@ models <- list(
 ```
 
 ```{r}
+#| labels: simulate_model
 simulate_model <- function(model) {
   sample <- model(stat = start$aice, time = 0, forcing = forcing_temp)
   hash <- digest::digest(sample, algo = "xxh3_128")
@@ -1100,6 +1098,7 @@ simulate_model <- function(model) {
 ```
 
 ```{r}
+#| labels: sims
 sims <- lapply(models, simulate_model) |>
   c(list(obs = CDRv6(), s2 = s2()))
 
@@ -1108,6 +1107,7 @@ sims <- data.table(model = names(sims), file = unlist(sims))
 
 
 ```{r}
+#| label: sims-area
 area <- sims[,
   file |>
     cdo_fldint() |>
@@ -1189,9 +1189,6 @@ area |>
   scale_x_date(breaks = breaks_by("10 years"), date_labels = "%Y") +
   facet_wrap(~model)
 ```
-
-
-
 
 ```{r}
 #| label: cors
@@ -1289,40 +1286,32 @@ sims |>
 ```
 
 
-
 ```{r}
-
-stl_anom <- function(x, s.window = 7, t.window = 10) {
-  split <- stl(ts(x, frequency = 12), s.window = 7, t.window = t.window * 12)
-
-  x - split$time.series[, 1]
-}
-```
-
-```{r}
+#| label: cmip_files
 cmip_files <- cmip6()
 ```
 
 ```{r}
-cmip_files[variable == "siconc"] |>
-  # _[startsWith(model, "ACCESS-CM")] |>
-  _[,
-    cdo_fldint(file)[] |>
-      ReadNetCDF(c(area = "siconc")),
-    by = .(model, experiment)
-  ] |>
-  # _[year(time) < 2100] |>
-  _[,
-    .(area_y = mean(area)),
-    by = .(experiment, time = lubridate::floor_date(time, "1 year"), model)
-  ] |>
-  set_labels() |>
-  ggplot(aes(time, area_y)) +
-  geom_line(aes(color = experiment, group = 1)) +
-  facet_wrap(~model)
+# cmip_files[variable == "siconc"] |>
+#   # _[startsWith(model, "ACCESS-CM")] |>
+#   _[,
+#     cdo_fldint(file)[] |>
+#       ReadNetCDF(c(area = "siconc")),
+#     by = .(model, experiment)
+#   ] |>
+#   # _[year(time) < 2100] |>
+#   _[,
+#     .(area_y = mean(area)),
+#     by = .(experiment, time = lubridate::floor_date(time, "1 year"), model)
+#   ] |>
+#   set_labels() |>
+#   ggplot(aes(time, area_y)) +
+#   geom_line(aes(color = experiment, group = 1)) +
+#   facet_wrap(~model)
 ```
 
 ```{r}
+#| label: cmip_grid
 cmip_grid <- cmip_files |>
   dcast(experiment + model ~ variable, value.var = "file") |>
   _[,
@@ -1353,6 +1342,7 @@ cmip_grid_split <- rbind(
 ```
 
 ```{r}
+#| label: model_order
 cmip_rmse <- cmip_grid |>
   _[grid_monthly, on = c("t2m", "aice")] |>
   _[n > 10 & i.n > 10] |>
@@ -1511,6 +1501,7 @@ plot_daice_monthly2 +
   ) +
   facet_wrap(~model)
 ```
+
 ## Acknowledgments
 
 Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.

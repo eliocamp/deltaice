@@ -575,3 +575,10 @@ grid_ice <- (function(aice, tas, time = c(NA, NA)) {
     ]
 }) |>
   memoise::memoise(cache = cachem::cache_disk(here::here("data/cache/memoise")))
+
+
+stl_anom <- function(x, s.window = 7, t.window = 10) {
+  split <- stl(ts(x, frequency = 12), s.window = 7, t.window = t.window * 12)
+
+  x - split$time.series[, 1]
+}
