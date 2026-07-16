@@ -63,4 +63,8 @@ data
 .here
 .vscode
 /.quarto/
+/analysis/paper/.quarto/
 **/*.quarto_ipynb
+
+src/rcpp-cache
+_freeze/

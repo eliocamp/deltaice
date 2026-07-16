@@ -78,7 +78,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   cache = TRUE,
-  cache.extra = 42
+  cache.extra = 44
 )
 
 library(metR)
@@ -93,6 +93,7 @@ cdo_options_set("-L")
 
 box::use(R / datasets[...])
 box::use(R / functions[...])
+box::use(R / integration[evolve])
 
 source(here::here("R/ggplot.R"))
 
@@ -389,17 +390,12 @@ tf_model <- lm(y ~ poly(x, degree = 4, raw = TRUE), data = tf)
 ```
 
 
-```{r}
-#| label: daice_cpp
-#| cache: false
-Rcpp::sourceCpp(here::here("src/daice.cpp"))
-```
 
 ```{r}
 #| label: mod_simple
 mod_simple <- minpack.lm::nlsLM(
   daice ~
-    daice_cpp(
+    daice(
       t2m,
       aice,
       to = to,
@@ -431,7 +427,7 @@ mod_simple <- minpack.lm::nlsLM(
 coef_tf_model <- coef(tf_model)
 mod_tf <- minpack.lm::nlsLM(
   daice ~
-    daice_cpp(
+    daice(
       t2m,
       aice,
       to = coef_tf_model[1],
@@ -461,7 +457,7 @@ mod_tf <- minpack.lm::nlsLM(
 #| label: mod_gamma
 mod_gamma <- minpack.lm::nlsLM(
   daice ~
-    daice_cpp(
+    daice(
       t2m,
       aice,
       to = to,
@@ -497,7 +493,7 @@ mod_gamma <- minpack.lm::nlsLM(
 #| label: mod_damping
 mod_damping <- minpack.lm::nlsLM(
   daice ~
-    daice_cpp(
+    daice(
       t2m,
       aice,
       to = to,
@@ -531,13 +527,6 @@ mod_damping <- minpack.lm::nlsLM(
   control = minpack.lm::nls.lm.control(maxiter = 200)
 ) |>
   withr::with_seed(seed = 42)
-```
-
-
-```{r}
-#| label: poly_interactions_cpp
-#| cache: false
-Rcpp::sourceCpp(here::here("src/poly_interactions_cpp.cpp"))
 ```
 
 
@@ -963,12 +952,6 @@ mask <- daice[, mean(is.na(aice)), by = .(x, y)][V1 < 1][, V1 := NULL]
 start <- daice[time == time[1]] |>
   _[mask, on = .NATURAL]
 ```
-```{r}
-#| label: integration
-box::use(R / integration[evolve_])
-
-evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
-```
 
 ```{r}
 #| label: forcing_temp
@@ -989,14 +972,6 @@ time_fun <- \(t) {
   ))
 }
 forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
-```
-
-```{r}
-#| label: lookup
-#| cache: false
-Sys.setenv(PKG_CXXFLAGS = "-O3 -march=native -fopenmp")
-Sys.setenv(PKG_LIBS = "-fopenmp")
-Rcpp::sourceCpp(here::here("src/lookup.cpp"))
 ```
 
 ```{r}
@@ -1075,7 +1050,7 @@ simulate_model <- function(model) {
 ```
 
 ```{r}
-#| label: sims
+#| label: sim
 sims <- lapply(models, simulate_model) |>
   c(list(obs = CDRv6(), s2 = s2()))
 
@@ -1262,12 +1237,14 @@ sims |>
   wide_legend
 ```
 
+## CMIP6
 
 ```{r}
 #| label: cmip_files
 cmip_files <- cmip6()
 ```
 
+ 
 ```{r}
 #| label: cmip_grid
 cmip_grid <- cmip_files |>
@@ -1298,6 +1275,8 @@ cmip_grid_split <- rbind(
     ]
 )
 ```
+
+
 
 ```{r}
 #| label: model_order

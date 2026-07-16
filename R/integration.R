@@ -65,4 +65,4 @@ evolve_ <- function(
 }
 
 
-# evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))
+evolve <- memoise::memoise(evolve_, cache = cachem::cache_disk("data/cache"))

@@ -1,3 +1,20 @@
+# Keep Rcpp exports in a subenvironment
+cpp <- new.env()
+
+# Compile. Has a caching function
+Rcpp::sourceCpp(
+  here::here("src/rcpp.cpp"), # source file
+  cacheDir = here::here("src/rcpp-cache"),
+  env = cpp
+) # default is globalenv(), use a local environment instead
+
+
+daice <- cpp$daice
+predict_dice <- cpp$predict_dice
+lookup <- cpp$lookup
+interpolate_cpp <- cpp$interpolate_cpp
+
+
 quantile <- function(
   x,
   probs = seq(0, 1, 0.25),
@@ -554,15 +571,18 @@ with_args <- function(args, calls) {
   })
 }
 
+dir_cache <- cachem::cache_disk(
+  here::here("data/cache/memoise"),
+  max_size = Inf
+)
 
 grid_ice <- (function(aice, tas, time = c(NA, NA)) {
   subset <- list(time = time)
 
   aice <- aice |>
-    rcdo::cdo_divc(100) |>
-    rcdo::cdo_execute() |>
     metR::ReadNetCDF(c(aice = "siconc"), subset = subset) |>
-    na.omit() |>
+    stats::na.omit() |>
+    _[, aice := aice / 100] |>
     _[, daice := c(diff(aice), NA), by = .(lon, lat)]
 
   tas <- metR::ReadNetCDF(tas, c(t2m = "tas"), subset = subset) |>
@@ -574,11 +594,51 @@ grid_ice <- (function(aice, tas, time = c(NA, NA)) {
       by = .(t2m = cut_mid(t2m, 0.2, 0), aice = cut_mid(aice, 0.01, 0.11))
     ]
 }) |>
-  memoise::memoise(cache = cachem::cache_disk(here::here("data/cache/memoise")))
+  memoise::memoise(cache = dir_cache)
+
+daice_read <- (function() {
+  box::use(R / datasets[...])
+  box::use(data.table[...])
+
+  ant_ice <- CDRv6() |>
+    metR::ReadNetCDF("aice") |>
+    normalise_names() |>
+    _[, daice := c(diff(aice), NA), by = .(x, y)]
+
+  temp_era_mon <- ERA5_t2m() |>
+    metR::ReadNetCDF("t2m")
+
+  sst_era_mon <- ERA5_sst() |>
+    metR::ReadNetCDF("sst")
+
+  daice <- ant_ice |>
+    _[temp_era_mon, on = .NATURAL] |>
+    _[sst_era_mon, on = .NATURAL] |>
+    _[data.table::year(time) %between% c(1983, 2024)] |>
+    _[, t2m := t2m - 273.15] |>
+    _[, sst := sst - 273.15] |>
+    _[, time := as.Date(time)]
+}) |>
+  memoise::memoise(
+    cache = dir_cache
+  )
+
+era_temp_fun <- function(data) {
+  t2m_matrix <- data[, .(time, x, y, t2m)] |>
+    metR:::.tidy2matrix(x + y ~ time, value.var = "t2m") |>
+    _$matrix
+  t2m_time <- 0:(ncol(t2m_matrix) - 1)
+
+  function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
+}
 
 
 stl_anom <- function(x, s.window = 7, t.window = 10) {
-  split <- stl(ts(x, frequency = 12), s.window = 7, t.window = t.window * 12)
+  split <- stats:stl(
+    stats::ts(x, frequency = 12),
+    s.window = 7,
+    t.window = t.window * 12
+  )
 
   x - split$time.series[, 1]
 }

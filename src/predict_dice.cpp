@@ -4,7 +4,7 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-NumericVector poly_interactions_dot_cpp(NumericVector x1, NumericVector x2,
+NumericVector predict_dice(NumericVector x1, NumericVector x2,
                                           NumericVector coefficients,
                                           int nthreads = 0) {
     constexpr int ncol = 16; // (3+1) x (3+1) full tensor product
