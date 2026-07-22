@@ -981,7 +981,7 @@ The temperature-based models seem to do quite well compared with a coupled model
 Both temperature-based models experience a seasonal cycle of similar amplitude to observations, although the in the simple model, its phase is shited by about one month. 
 
 ```{r}
-#| label: lonlat_lines\
+#| label: lonlat_lines
 
 grid <- CDRv6() |>
   ReadNetCDF(subset = list(time = I(c(1, 2)))) |>

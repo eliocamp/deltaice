@@ -233,33 +233,501 @@ your scientific discipline. Read our tips for creating an effective PLS.
 \item
   CDR data source
 \item
-  ERA5 data source
-\item
   ACCESS-S2 data source
 \end{itemize}
 
 \section{Results}\label{results}
 
 \begin{itemize}
+\tightlist
 \item
   Description of the conceptual model + equations
-\item
-  Properties of the model
-\item
-  Observations
-\item
-  Comparison with the model
-\item
-  Possible refinements of the model
-\item
-  Integration of the model
-\item
-  Extent
-\item
-  Correlation, RMSE and Bias. (w/ comparisons with ACCESS-S2)
 \end{itemize}
 
+\subsection{Simple model of sea ice
+growth}\label{simple-model-of-sea-ice-growth}
+
+I start with a simplified model of sea ice growth. In this model, each
+cell has an area of water and of an area covered with ice. Assuming that
+sea ice is a perfect insulator, the ocean surface exchanges heat with
+the atmosphere only in the ice-free surface. This heat flux is
+parameterised with a bulk formula with a constant exchange coefficient
+and sea surface temperature is assumed to be constant and equal to the
+freezing point. This latter assumption is somewhat justified by the fact
+that a mixture of water and ice in thermodynamic equilibrium will stay
+at the freezing point, and any heat gain or loss will either melt or
+freeze more ice.
+
+The full formula for the heat exchange per unit area then is
+
+\begin{equation}\phantomsection\label{eq-flux}{
+F = \alpha (T_a - T_f) (1 - I_a)
+}\end{equation}
+
+Where, \(T_f\) and \(T_a\) are the freezing point temperature of the
+ocean and the atmosphere respectively, \(I_a\) is the proportion of the
+gridcell covered with ice and \(\alpha\) is a proportionality constant.
+
+The change in sea ice concentration will be related to \(F\). To
+transform the heat exchange flux to a proportion of sea ice melted or
+ice-free ocean frozen \(F_{p}\), we use this transformation.
+
+\[
+F_{p} = \frac{F} {(1 + \left| F \right |)}
+\]
+
+This transformation ensures that \(F_p\) is bounded by
+\(\left(0, 1\right)\) and parameterises a saturation point beyond
+extremely strong fluxes will be partially counteracted by other
+processes like horizontal and vertical transport of heat within the top
+layer of the ocean.
+
+If \(F\) is negative, the heat lost to the ocean is balanced by
+freezing. However, because only ice-free areas can freeze, I assume that
+the change in sea ice concentration is also proportial to the ice-free
+area.
+
+\[
+\dot{I} = -\beta_f F_{p} (1 - I_a)
+\]
+
+Where \(\beta_f\) is a freezing proportionality constant.
+
+Conversely, if \(F\) is positive, the ocean gains heat which is used to
+melt ice. In this case it is only ice-covered areas which can melt,
+making the change in sea ice concentration proportional to sea ice
+concentration itself.
+
+\[
+\dot{I} = -\beta_m F_{p} I_a
+\]
+
+Where \(\beta_m\) is a memlting proportionality constant that in
+principle could be different from \(\beta_f\).
+
+The full model, therefore is
+
+\begin{equation}\phantomsection\label{eq-model}{
+\dot{I} =
+\begin{cases}
+\frac{-\beta_f \alpha (T_a - T_f) (1 - I_a)^2 }{ 1 + \alpha (T_a - T_f) (1 - I_a)}    &  T_a \le T_f, \\
+\frac{-\beta_m \alpha (T_a - T_f) (1 - I_a) I_a }{ 1 + \alpha (T_a - T_f) (1 - I_a)}  &  T_a    > T_f
+\end{cases}
+}\end{equation}
+
+\section{Properties of the model}\label{properties-of-the-model}
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-aice-lines-1.png}}
+
+}
+
+\caption{\label{fig-aice-lines}Observed and modelled sea ice change.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-daice-monthly-1.png}}
+
+}
+
+\caption{\label{fig-daice-monthly}Average change in sea ice
+concentration from current to next month as a function of monthly sea
+ice concentration in current month and monthly mean 2-m tempretuare in
+curent month for observations (a) Equation~\ref{eq-model} (b) and
+\textbf{?@eq-model-2} (c). The gray area represents regions with less
+than 10 observations. Horizontal lines at \{celsius(low\_t)\} and
+\{celsius(high\_t)\} indicate the cross-section shown in
+Figure~\ref{fig-aice-lines}.}
+
+\end{figure}%
+
+To illustrate the basic properties of this simple model,
+Figure~\ref{fig-aice-lines} (dashed lines) shows the change in monthly
+sea ice concentration change as function of sea ice concentration for
+one temperature in the melting and freezing regimes. The parameters were
+fitted to observations using non-linear least squares. For a given
+temperature below freezing, sea ice growth is maximum at low sea ice
+concentrations since that maximises both the heat loss and ice-free
+ocean that is available for freezing. At high sea ice concentrations
+heat fluxes are suppressed and there is little open water to freeze,
+leading to slow growth. At a given temperature above freezing, on the
+other hand, sea ice melt is slow at low concentrations because there is
+little ice left to melt and at high concentrations because the ice
+insulates the ocean from the atmosphere. Maximum melt is at around 75\%
+sea ice concentrations, when there is enough ice to melt and enough
+ice-free ocean for the ocean to exchange heat.
+
+We can compare this model with observed values, computed by averaging
+gridcells with temperatures of -7°C and -1°C \(\pm\) 0.25°C and sea ice
+concentration values binned at boxes 2\% wide (solid lines in
+Figure~\ref{fig-aice-lines}). The overall curve in observations fits
+notably well with the simple theory in the melt regime. Melt is zero at
+zero concentrations by mathematical necessity, but it is also low at
+high concentrations, showing the stabilisation effect of sea ice
+insulation. At 100\% sea ice concentrations, melt values are not exactly
+zero. This in likely partly due to the binning -- which means that these
+values are actually the average of values between 95\% and 100\% -- but
+also likely a real effect that includes many processes that the model
+doesn't take into account, such as transport, deformation, melting from
+below and heat exchange through the ice itself.
+
+In the growth regime, observations follow the simple model roughly; with
+low growth at high concentrations and high growth at low concentrations.
+However, it deviates from the model in two significant ways. First, at
+sea ice concentrations lower than 25\%, growth starts to flatten out.
+This could be due to missing processes, but it is also important to note
+that satellite observations are increasingly uncertain below
+\textasciitilde15\% and that there is no data between 0\% and 10\%
+concentrations. Second, at high concentrations sea ice actually melts
+even when exposed to low temperatures.
+
+A more complete picture of the problem is shown in
+Figure~\ref{fig-daice-monthly} which shows observed average sea ice
+concentration change as a function of monthly sea ice concentrations and
+2-metre temperature. The black line estimates the ``zero line'' that
+divides sea ice growth from melt. Thi is essentially an estimate of the
+effective \(T_f\) in Equation~\ref{eq-flux}. Contraty to the model's
+assumptiont, this zero line is not constant and instead depends heavily
+on sea ice concentration. At low concentrations, air temperatures just
+below -2°C are enough to cause sea ice growth on average, but as sea ice
+concentrations rise, the air needs to be increasingly colder for ice not
+to melt. At about 50\% sea ice concentration, air temperatures need to
+be lower than -5°C for ice to grow. This property cannot be captured by
+the model in Equation~\ref{eq-model}, which assumes that sea ice will
+grow whenever air temperature is below the freezing point of ocean
+water, whose dependency with salinity is nowhere near as strong.
+
+One possible problem could be the assumption that ocean temperatures are
+constant. However, reproducing the same plot but using the difference
+between 2-metre air temperature and SST results in almost the same
+relationship (Figure~\ref{fig-daice-monthly-sst}).
+
+A direct refinement of the model is to postulate an ad-hoc dependency of
+\(T_f\) on sea ice concentration. The black line in
+Figure~\ref{fig-daice-monthly} is well modelled a fourth degree
+polinomial in Equation~\ref{eq-tf-model} fitted by linear regression.
+
+\begin{equation}\phantomsection\label{eq-tf-model}{
+T_f = - 1.13 - 6.68I - 7.50I^2 + 24.22I^3 - 25.09I^4
+}\end{equation}
+
+This model reproduces the dependency of \(T_f\) on sea ice concentration
+by definition (Figure~\ref{fig-aice-lines} c), and matches the overall
+shape relatively well (Figure~\ref{fig-daice-monthly} c). However, it
+slightly overestimates the melt ocurring at low temperatures at high sea
+ice concentrations and features a discontinuity in the derivative of
+\(dI/dt\) with respect to sea ice concentration, creating a ``kink''
+seen in Figure~\ref{fig-aice-lines} c.~ Moreover, this is a wholelly
+ad-hoc modification. Regardless of goodness-of-fit, it would be
+preferrable to have a model in which the dependency of \(T_f\) with sea
+ice concentration arised as an emergent property from physically
+motivated rules.
+
+A physics-based refinement of the model is pressupose a positive heat
+flux representing warming of the water from the bottom by mixing of
+relatively warmer subsurface water. Under this formulation, ice would
+grow only if the freezing at the surface from the atmosphere was larger
+than the melting from the ocean, which would require more extreme air
+temperature when ice insulation is higher at higher concentrations, thus
+creating an effective dependency on \(T_f\) on sea ice concentration.
+Both wind forcing and waves can induce mixing, and both are dampened by
+the presence of sea ice, therefore this flux should also be proportional
+to the ice-free area.
+
+In this full model the change in sea ice concentration is decomposed
+into change due to air fluxes and ocean fluxes.
+
+\[
+\dot{I} = \dot{I}|_a  + \dot{I}|_o 
+\]
+
+Where \(\dot{I}|_a\) is computed as before and \(\dot{I}|_o\) is
+
+\[
+\dot{I}|_o = \beta_m F_o I 
+\]
+
+Where \(F_o = \gamma(1 - I)\).
+
+The results of this model are shown in Figure~\ref{fig-aice-lines} d and
+Figure~\ref{fig-daice-monthly} d. This model produces a \(T_f\)
+dependency comparable with observations, although the exact shape is
+clearly not correct; it is too flat at low sea ice concentrations and
+too steep at high sea ice concentrations. Nevertheless, it suggest that
+ocean processes might be responsible for this phenomenon.
+
+An alternative model imposing a damping forcing that relaxes sea ice
+concentrations towards a temperature-dependent value were tried. This
+tries to simulate that gridpoints with either particularly high or low
+sea ice concentration values compared with their surroundings will tend
+to either export ice away or gain ice from their neighbours. However,
+the estimated damping strength from observations was minimal and could
+not explain the observed shaped of the ice-temperature surface. A nudge
+would also not be compatible with the observed zero melt at 100\% sea
+ice concentration.
+
+\section{Integration of the model}\label{integration-of-the-model}
+
+Even a perfect fit to the observed average relationship will only
+capture a fracton of the total variabilty of sea ice, since it ignores a
+multitude of external factors and internal sea ice proceses. To explore
+how much can be explained, we integrate the model based on observations
+and the simple model in time using 2-metre temperature fields from ERA5
+as forcing from 1983 to 2023.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-seasonal-cycle-1.png}}
+
+}
+
+\caption{\label{fig-seasonal-cycle}Monthly mean sea ice area for each
+model. Observations in gray.}
+
+\end{figure}%
+
+The temperature-based models seem to do quite well compared with a
+coupled model. Figure~\ref{fig-seasonal-cycle} shows the seasonal cycle
+of sea ice area for of simulations based on the simple model, the model
+based on observations and 1-month forecast of ACCESS-S2. Both
+temperature-based models experience a seasonal cycle of similar
+amplitude to observations, although the in the simple model, its phase
+is shited by about one month.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-bias-1.png}}
+
+}
+
+\caption{\label{fig-bias}Sea ice concentration bias compared with
+observations for February and September.}
+
+\end{figure}%
+
+However, this aggregated quantity hides spatial variation.
+Figure~\ref{fig-bias} shows that sea ice concentration bias localy high
+in the models. ALl three models show a strong low concentration bias in
+the Weddell Sea in February, while statistical models also exhibit high
+concentraiton bias in the Ross Sea. It is likely that the lack of
+dynamical processes in the statistical models is what is causing this
+bias. If that is the case, then the fact that the coupled model share
+the same feature suggest a problem in the dynamics of the model.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-area-anomalies-1.png}}
+
+}
+
+\caption{\label{fig-area-anomalies}Monthyl sea ice area anomalies.}
+
+\end{figure}%
+
+Despite large local biases, the statistical models simulate sea ice area
+anomalies remarcable well (Figure~\ref{fig-area-anomalies}).
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-spatial-cor-1.png}}
+
+}
+
+\caption{\label{fig-spatial-cor}Correlation between simulated and
+observed monthly mean sea ice concentration for the different models for
+February and September.}
+
+\end{figure}%
+
+Figure~\ref{fig-spatial-cor} shows the correlation of sea ice anomalies
+for Febuary and Septemeber. In Summer, models have comparable low
+correlation values, however in Spring, the statistical models show
+higher correlation that the coupled model in the ice edge, although
+correlations are near zero in the core of the ice pack. This likely is
+related to the low variance of sea ice concentrations in that region,
+where it's almost 100\% every September. This can be seen in
+Figure~\ref{fig-sd}, that compares interannual standard deviation.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-sd-1.png}}
+
+}
+
+\caption{\label{fig-sd}}
+
+\end{figure}%
+
+\section{CMIP6}\label{cmip6}
+
+The realtionship implied in Figure~\ref{fig-daice-monthly} is assumed to
+be an emergent property of thermodynamic processes and interactions
+between sea ice and the atmosphere. To understand to what extent this
+relationship is stable and predictive of sea ice behaviour, we analyse
+it using historical simulations and SSP585 projections of CMIP6 models.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-historical-1.png}}
+
+}
+
+\caption{\label{fig-cmip-historical}Same as
+Figure~\ref{fig-daice-monthly} but for historical CMIP6 simulations in
+the preiod 1850--2014. The purple line marks the zero line from
+observations for comparison. Models ordered by ascending root mean
+square error compared with observations.}
+
+\end{figure}%
+
+Figure~\ref{fig-cmip-historical} shows the relationship between sea ice
+concentration change, air temparature and sea ice concentration. All
+models the relationship follows the overall shape found in observations,
+indicating that this is a stable and physically meaninful relationship.
+However, there are indeed variation between models. Focusing only on the
+zero line, we observe that most models have a melt bias, in the sense
+that they lose sea ice at lower temperaturess than in observations.
+MIROC6 (Fig.~\ref{fig-cmip-historical}s) is a particularly loses ice at
+temperatures as cold as -6°C at 50\% sea ice concentration. The only
+models with a freeze bias (ice growing at higher temperatures than in
+observations) are ACCESS-CM2 and NESM3 (Fig.~\ref{fig-cmip-historical}g
+and i).
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-rmse-bias-1.png}}
+
+}
+
+\caption{\label{fig-rmse-bias}RMSE of models.}
+
+\end{figure}%
+
+This evaluation of bias is incomplete since it is only based on the zero
+line and ignores the magntiude of melt of freeze at different
+temperatures and sea ice concentrations. Figure~\ref{fig-rmse-bias}
+shows the bias and RMSE in change in sea ice concentration of each model
+compared with observations. Of the 19 evaluated models, 8 have an
+overall negative bias and 10 have positive bias an compared with
+observations. ACCESS-ESM1.5 is the only model that has statistically no
+bias in the historical simulation. With the exception of MIROC6, the
+magnitude of positive biases is similar to the magitude of negative
+biases, and the average bias accross models is 0 (CI: -0.02 -- 0.02),
+indicating that neither warm nor cold models dominate. However, models
+with negative bias tend to have larger RMSE, indicating large errors
+that compensate.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-errors-1.png}}
+
+}
+
+\caption{\label{fig-cmip-errors}Relationship between errors in
+ice-temperature relationship and errors in the seasonal cycle of sea ice
+area. RMSE in panel a, bias in panel b.}
+
+\end{figure}%
+
+To test if errors in the temperature-ice relationship translate to
+errors in model representation of sea ice, Figure~\ref{fig-cmip-errors}
+compares these errors with errors in the representation of the seasonal
+cycle. RMSE of the temperature-ice relationship is highly predictive of
+RMSE in the seasonal cycle. Models where this relation is similar to
+observations simulate a seasonal cycle closer to the observed. Bias is
+less predictive than RMSE. Even models with a freeze bias, like
+CESM2\_WACCM or ACCESS-CM2, exhibit a negative sea ice area bias. There
+is a trend for lower negative sea ice area bias in those models with
+freeze bias, but that relationship is weaker than the RMSE one.
+
 \section{Conclusions}\label{conclusions}
+
+\section{Suppolementary figures}\label{suppolementary-figures}
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-daice-monthly-sst-1.png}}
+
+}
+
+\caption{\label{fig-daice-monthly-sst}Same as
+Figure~\ref{fig-daice-monthly} but using the difference between 2-metre
+temperature and SST.}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-historical_old-1.png}}
+
+}
+
+\caption{\label{fig-cmip-historical_old}}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-historical_new-1.png}}
+
+}
+
+\caption{\label{fig-cmip-historical_new}}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-ssp585-1.png}}
+
+}
+
+\caption{\label{fig-cmip-ssp585}}
+
+\end{figure}%
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-seasonal-1.png}}
+
+}
+
+\caption{\label{fig-cmip-seasonal}}
+
+\end{figure}%
 
 \section{Acknowledgments}\label{acknowledgments}
 
