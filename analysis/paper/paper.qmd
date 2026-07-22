@@ -78,7 +78,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   cache = TRUE,
-  cache.extra = 44
+  cache.extra = 43
 )
 
 library(metR)
@@ -86,6 +86,8 @@ library(lubridate)
 library(data.table)
 library(ggplot2)
 library(rcdo)
+library(tagger)
+library(patchwork)
 future::plan("multicore", workers = parallelly::availableCores(omit = 1))
 
 cdo_cache_set(here::here("data/temp/cache"))
@@ -144,8 +146,6 @@ set_labels <- function(data) {
   return(data)
 }
 ```
-
-
 
 ```{r}
 #| label: daice
@@ -225,7 +225,7 @@ doti <- latex2exp::TeX(r"(\dot{I})")
 ```
 
 
-* Properties of the model
+## Properties of the model
 
 
 ```{r}
@@ -328,45 +328,6 @@ smooth_grid[aice == 0, daice := smooth_grid[aice == 0.01, daice]]
 smooth_grid[, daice := clamp_daice(daice, aice)]
 
 b <- seq(-1, 1, by = 0.1)
-
-# grid_monthly |>
-#   # _[n > 200] |>
-#   ggplot(aes(aice, t2m)) +
-#   geom_contour_fill(aes(z = daice), breaks = b) +
-#   geom_contour2(
-#     aes(z = daice, linetype = factor(sign(-..level..))),
-#     breaks = b,
-#     data = smooth_grid
-#   ) +
-#   geom_contour2(
-#     aes(z = daice),
-#     breaks = 0,
-#     linewidth = 2,
-#     data = smooth_grid
-#   ) +
-#   # ylim(c(-20, 1))+
-#   scale_fill_gradient2()
-
-# old_coef <- c(
-#   -0.082,
-#   -0.14,
-#   -0.0085,
-#   -0.00012,
-#   -1.4,
-#   -0.28,
-#   1.6,
-#   -0.57,
-#   -0.04,
-#   -0.00078,
-#   1.2,
-#   0.095,
-#   0.0018,
-#   -0.5,
-#   -0.047,
-#   -0.00096
-# )
-
-# model_monthly$coefficients <- old_coef
 ```
 
 
@@ -557,18 +518,18 @@ aice_value <- function(t2m_range, max = 1) {
 }
 
 labs_models <- c(
-  daice = "Obs",
+  daice = "Observations",
   daice_simple = "Simple model",
   daice_tf = "Variable T_f",
   daice_gamma = "Model with extra flux",
-  daice_poly = "Polynomial fit"
+  daice_smooth = "Smooth observations"
 )
 
 smooth_grid_coarse <- smooth_grid[, .(
   t2m,
   aice,
   value = daice,
-  variable = "daice_poly"
+  variable = "daice_smooth"
 )] |>
   _[,
     Interpolate(
@@ -585,8 +546,6 @@ models <- grid_monthly |>
     let(
       daice_simple = daice_fitted(mod_simple, aice, t2m),
       daice_gamma = daice_fitted(mod_gamma, aice, t2m),
-      # daice_damping = daice_fitted(mod_damping, aice, t2m),
-      # daice_poly = predict(model_monthly, newdata = .SD),
       daice_tf = daice_fitted(mod_tf, aice, t2m)
     )
   ] |>
@@ -611,6 +570,7 @@ models <- grid_monthly |>
 #| fig-cap: Observed and modelled sea ice change. 
 models |>
   _[t2m %~% high_t | t2m %~% low_t] |>
+  _[variable != "daice_smooth"] |>
   # set_labels() |>
   # _[variable == "daice_damping"] |>
   ggplot(aes(aice, value)) +
@@ -634,30 +594,16 @@ models |>
   geom_line(
     aes(
       colour = celsius(t2m),
-      # linetype = variable,
     ),
     linewidth = 1
   ) +
-
-  # scale_color_manual(
-  #   "2-m temperature",
-  #   values = c("red", "blue") |> setNames(celsius(c(high_t, low_t)))
-  # ) +
-  # scale_linetype_manual(
-  #   values = c(
-  #     daice = "solid",
-  #     daice_simple = "31",
-  #     daice_gamma = "4212",
-  #     daice_tf = "4422",
-
-  #   )
-  # ) +
-  scale_y_continuous("dC/dt") +
+  scale_y_continuous(doti) +
   scale_x_continuous(
     "Monthly mean sea ice concentration",
     expand = c(0, 0),
     limits = c(0, 1)
   ) +
+  scale_colour_manual("Temperature", values = c("#C01C28", "#1C71D8")) +
   facet_wrap(~variable, labeller = labeller(variable = labs_models)) +
   tagger::tag_facets() +
   theme(tagger.panel.tag.background = element_rect(colour = NA, fill = "white"))
@@ -666,8 +612,8 @@ models |>
 
 ```{r}
 #| label: fig-daice-monthly
-#| fig-height: 5
-#| fig-width: 10
+#| fig-height: 6
+#| fig-width: 9
 #| fig-cap: Average change in sea ice concentration from current to next month as a function of monthly sea ice concentration in current month and monthly mean 2-m tempretuare in curent month for observations (a) @eq-model (b) and @eq-model-2 (c). The gray area represents regions with less than 10 observations. Horizontal lines at {celsius(low_t)} and {celsius(high_t)} indicate the cross-section shown in @fig-aice-lines.
 breaks <- seq(-1, 1, by = 0.1)
 
@@ -687,11 +633,11 @@ with_base <- models |>
   _[, variable := NULL] |>
   setnames("value", "base") |>
   merge(models[variable != "daice"])
-with_base |>
-  _[, mean((value - base)^2, na.rm = TRUE), by = variable]
-
+# with_base |>
+#   _[, mean((value - base)^2, na.rm = TRUE), by = variable]
 
 plot_daice_monthly <- models |>
+  _[variable != "daice_smooth"] |>
   ggplot(aes(aice, t2m)) +
   scale_color_manual(
     NULL,
@@ -727,7 +673,7 @@ plot_daice_monthly <- models |>
     data = data.frame(y = c(low_t, high_t), state = c("Growth", "Melt")),
     aes(yintercept = y, label = state, color = state)
   ) +
-  as.discretised_scale(scale_fill_gradient2)("dC/dt") +
+  as.discretised_scale(scale_fill_gradient2)(doti) +
   scale_y_continuous(
     "Monthly mean 2-m temperature (°C)",
     limits = c(-15, 2.5),
@@ -753,7 +699,9 @@ plot_daice_monthly
 #| fig-height: 5
 #| fig-width: 9
 #| fig-cap: Observed and modelled sea ice change. 
+#| include: false
 models |>
+  _[variable != "daice_smooth"] |>
   _[aice %~% c(0.25, 0.75, 0.5, 0.9)] |>
   _[t2m %between% c(-15, 1)] |>
   ggplot(aes(t2m, value)) +
@@ -781,26 +729,7 @@ models |>
     ),
     linewidth = 1
   ) +
-
-  # scale_color_manual(
-  #   "2-m temperature",
-  #   values = c("red", "blue") |> setNames(celsius(c(high_t, low_t)))
-  # ) +
-  # scale_linetype_manual(
-  #   values = c(
-  #     daice = "solid",
-  #     daice_simple = "31",
-  #     daice_gamma = "4212",
-  #     daice_tf = "4422",
-
-  #   )
-  # ) +
-  scale_y_continuous("dC/dt") +
-  # scale_x_continuous(
-  #   "Monthly mean sea ice concentration",
-  #   expand = c(0, 0),
-  #   limits = c(0, 1)
-  # ) +
+  scale_y_continuous(doti) +
   facet_wrap(~variable)
 ```
 
@@ -836,31 +765,6 @@ However, reproducing the same plot but using the difference between 2-metre air 
 
 
 
-```{r}
-#| label: fig-daice-monthly-sst
-#| fig-height: 5
-#| fig-width: 10
-#| fig-cap: Same as @fig-daice-monthly but using the difference between 2-metre temperature and SST. 
-
-plot_daice_monthly2 <- plot_daice_monthly
-
-plot_daice_monthly2@layers <- plot_daice_monthly2@layers[1:4]
-plot_daice_monthly2@scales$scales[[
-  3
-]]$name <- "Difference between\n2-metre temperature and SST (°C)"
-
-plot_daice_monthly2 +
-  (daice |>
-    _[!is.na(daice)] |>
-    _[,
-      .(value = mean(daice), n = sum(!is.na(daice))),
-      by = .(
-        t2m = cut_mid(t2m - sst, 0.2, 0),
-        aice = cut_mid(aice, 0.01, 0.11)
-      )
-    ]) +
-  facet_null()
-```
 
 A direct refinement of the model is to postulate an ad-hoc dependency of $T_f$ on sea ice concentration. 
 The black line in @fig-daice-monthly is well modelled a fourth degree polinomial in @eq-tf-model fitted by linear regression. 
@@ -899,13 +803,13 @@ Both wind forcing and waves can induce mixing, and both are dampened by the pres
 In this full model the change in sea ice concentration is decomposed into change due to air fluxes and ocean fluxes. 
 
 $$
-\dot{I} = \dot{I}\Bigg|_a  + \dot{I}\Bigg|_o 
+\dot{I} = \dot{I}|_a  + \dot{I}|_o 
 $$
 
-Where $\dot{I}\Bigg|_a$ is computed as before and $\dot{I}\Bigg|_o$ is 
+Where $\dot{I}|_a$ is computed as before and $\dot{I}|_o$ is 
 
 $$
-\dot{I}\Bigg|_o = \beta_m F_o I 
+\dot{I}|_o = \beta_m F_o I 
 $$
 
 Where $F_o = \gamma(1 - I)$. 
@@ -920,31 +824,7 @@ However, the estimated damping strength from observations was minimal and could 
 A nudge would also not be compatible with the observed zero melt at 100% sea ice concentration. 
 
 
-
-
-* Integration of the model
-
-Even a perfect fit to the observed average relationship will only capture a fracton of the total variabilty of sea ice, since it ignores a multitude of external factors and internal sea ice proceses. 
-To explore how much can be explained, we integrate the models in time using 2-metre temperature fields from ERA5 as forcing. 
-
-
-```{r}
-#| label: interpolate_cpp
-#| cache: false
-
-```
-
-```{r}
-#| label: era_temp_fun
-# era_temp_fun <- function(data) {
-#   t2m_matrix <- data[, .(time, x, y, t2m)] |>
-#     metR:::.tidy2matrix(x + y ~ time, value.var = "t2m") |>
-#     _$matrix
-#   t2m_time <- 0:(ncol(t2m_matrix) - 1)
-
-#   function(t) interpolate_cpp(t2m_matrix, t2m_time, t)
-# }
-```
+## Integration of the model
 
 ```{r}
 #| label: start
@@ -965,14 +845,21 @@ time_translate <- data.table(
 ) |>
   _[, t := 0:(.N - 1)]
 
+int_range <- range(time_translate$time)
+
 time_fun <- \(t) {
   as.Date(as.POSIXct(
-    approxfun(time_translate$t, time_translate$time)(t),
+    approxfun(time_translatetime_translate$t, time_translate$time)(t),
     tz = "UTC"
   ))
 }
 forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
 ```
+
+
+Even a perfect fit to the observed average relationship will only capture a fracton of the total variabilty of sea ice, since it ignores a multitude of external factors and internal sea ice proceses. 
+To explore how much can be explained, we integrate the model based on observations and the simple model in time using 2-metre temperature fields from ERA5 as forcing from `r year(int_range[1])` to `r year(int_range[2])`. 
+
 
 ```{r}
 #| label: d_aice
@@ -1070,29 +957,80 @@ area <- sims[,
 
 ```{r}
 #| label: fig-seasonal-cycle
+#| fig-cap: Monthly mean sea ice area  for each model. Observations in gray.
+#| fig-width: 4
+#| fig-height: 4
 area |>
   # _[year(time) %between% c(1990, 2000)] |>
-  _[,
-    median_ci(area),
-    by = .(month(time), model)
-  ] |>
+  _[, median_ci(area), by = .(month(time), model)] |>
   _[, base := estimate[model == "obs"], by = month] |>
-  _[model != "obs"] |>
+  # _[model != "obs"] |>
   set_labels() |>
   ggplot(aes(month, estimate)) +
   geom_ribbon(aes(ymin = low, ymax = high), alpha = 0.2) +
   geom_line(aes(y = base), color = "gray") +
   geom_line() +
-  scale_y_continuous(variable_labels["area"], labels = labels_extent) +
+  scale_y_continuous(NULL, labels = labels_extent) +
   scale_x_month() +
   coord_cartesian(clip = "off") +
-  facet_wrap(~model, ncol = 2)
+  facet_wrap(~model, ncol = 1)
 ```
 
-
+The temperature-based models seem to do quite well compared with a coupled model.
+@fig-seasonal-cycle shows the seasonal cycle of sea ice area for of simulations based on the simple model, the model based on observations and 1-month forecast of ACCESS-S2. 
+Both temperature-based models experience a seasonal cycle of similar amplitude to observations, although the in the simple model, its phase is shited by about one month. 
 
 ```{r}
+#| label: lonlat_lines\
+
+grid <- CDRv6() |>
+  ReadNetCDF(subset = list(time = I(c(1, 2)))) |>
+  _[, .(x, y)] |>
+  unique() |>
+  _[,
+    c("lon", "lat") := proj4::project(
+      list(x, y),
+      proj = sic_projection,
+      inverse = TRUE
+    )
+  ]
+
+lonlat <- function(lim = -90) {
+  grid[lat >= lim]
+}
+
+
+lonlat_lines <- with_args(
+  list(colour = "gray", linetype = 2, skip = 0),
+  list(
+    geom_contour2(
+      data = lonlat(),
+      aes(z = lat),
+      breaks = seq(-80, 0, by = 20)
+    ),
+    geom_contour2(
+      data = lonlat(-80),
+      aes(z = lon),
+      breaks = seq(-180, 180, by = 30)[-1]
+    )
+  )
+)
+```
+```{r}
 #| label: fig-bias
+#| fig-cap: Sea ice concentration bias compared with observations for February and September. 
+#| fig-width: 8
+#| fig-height: 6
+
+# label_placer_mag <- function(
+#   rot_adjuster = isoband::angle_halfcircle_bottom()
+# ) {
+#   label_placer <- function(x, y) {
+#     which.max(x^2 + y^2)
+#   }
+#   metR:::as_placer(label_placer, rot_adjuster = rot_adjuster)
+# }
+
 sims |>
   _[, .(file = cdo_ymonmean(file)[]), by = model] |>
   _[, base := file[model == "obs"]] |>
@@ -1100,6 +1038,8 @@ sims |>
   _[, cdo_sub(file, base) |> cdo_selmonth("2,9") |> _[], by = model] |>
   _[, ReadNetCDF(V1, "aice"), by = model] |>
   _[, month := month(time)] |>
+  # _[month == 2] |>
+  # _[model == "mod_simple"] |>
   ggplot(aes(x, y)) +
   with_args(
     list(aes(z = aice), breaks = AnchorBreaks(exclude = 0, binwidth = 0.1)),
@@ -1108,18 +1048,30 @@ sims |>
       geom_contour_tanaka()
     )
   ) +
-  geom_antarctica_fill +
   as.discretised_scale(scale_fill_gradient2)("Bias") +
+
+  geom_antarctica_fill +
+  lonlat_lines +
   scales_antarctica +
   facet_grid(
     month ~ model,
     labeller = labeller(month = labels_month, model = labels_models)
   ) +
-  wide_legend
+  wide_legend +
+  tag_facets(tag = "rc")
 ```
+
+However, this aggregated quantity hides spatial variation. 
+@fig-bias shows that sea ice concentration bias localy high in the models.
+ALl three models show a strong low concentration bias in the Weddell Sea in February, while statistical models also exhibit high concentraiton bias in the Ross Sea. 
+It is likely that the lack of dynamical processes in the statistical models is what is causing this bias. 
+If that is the case, then the fact that the coupled model share the same feature suggest a problem in the dynamics of the model. 
 
 ```{r}
 #| label: fig-area-anomalies
+#| fig-cap: Monthyl sea ice area anomalies. 
+#| fig-height: 5
+#| fig-width: 8
 area |>
   _[year(time) > 1983] |>
   copy() |>
@@ -1127,20 +1079,23 @@ area |>
     area := area - mean(area[year(time) %between% c(1990, 2010)]),
     by = .(month(time), model)
   ] |>
-  _[, base := area[model == "obs"], by = time] |>
-  _[model != "obs"] |>
+  # _[model != "obs"] |>
   set_labels() |>
   ggplot(aes(time, area)) +
-  geom_line(aes(y = base), color = "gray") +
+  geom_line(data = \(x) x[model == "obs"][, model := NULL], color = "gray") +
   geom_line() +
   # scale_color_models +
   scale_y_continuous(
-    paste0(variable_labels["area"], " anomaly"),
+    NULL,
     labels = labels_extent
   ) +
-  scale_x_date(breaks = breaks_by("10 years"), date_labels = "%Y") +
-  facet_wrap(~model)
+  scale_x_date(NULL, breaks = breaks_by("10 years"), date_labels = "%Y") +
+  facet_wrap(~model, ncol = 1) +
+  tag_facets()
 ```
+
+Despite large local biases, the statistical models simulate sea ice area anomalies remarcable well (@fig-area-anomalies). 
+
 
 ```{r}
 #| label: cors
@@ -1161,23 +1116,29 @@ cors <- sims |>
 
 ```{r}
 #| label: fig-spatial-cor
+#| fig-cap: Correlation between simulated and observed monthly mean sea ice concentration for the different models for February and September.
 #| fig-height: 6
-#| fig-width: 5
+#| fig-width: 8 
 cors |>
   _[month %in% c(2, 9)] |>
-  na.omit() |>
+  _[is.na(estimate), estimate := 0] |>
   ggplot(aes(x, y)) +
-  geom_contour_fill(aes(z = estimate, fill = ..level..)) +
-  # with_args(
-  #   list(aes(z = estimate), breaks = seq(-1, 1, by = 0.2)),
-  #   list(
-  #     geom_contour_fill(aes(z = estimate, fill = ..level..)),
-  #     geom_contour_tanaka()
-  #   )
-  # ) +
-  geom_antarctica_fill +
+  # geom_contour_fill(aes(z = estimate, fill = ..level..)) +
+  with_args(
+    list(
+      aes(z = estimate),
+      breaks = AnchorBreaks(exclude = 0, binwidth = 0.1)(c(-1, 1))
+    ),
+    list(
+      geom_contour_fill(aes(z = estimate, fill = ..level..)),
+      geom_contour_tanaka()
+    )
+  ) +
   scale_fill_divergent_discretised("Correlation") +
+  geom_antarctica_fill +
   scales_antarctica +
+  lonlat_lines +
+  theme(panel.grid = element_blank()) +
   facet_grid(
     month ~ model,
     labeller = labeller(month = labels_month, variable = labels_models)
@@ -1186,30 +1147,39 @@ cors |>
 ```
 
 
+@fig-spatial-cor shows the correlation of sea ice anomalies for Febuary and Septemeber. 
+In Summer, models have comparable low correlation values, however in Spring, the statistical models show higher correlation that the coupled model in the ice edge, although correlations are near zero in the core of the ice pack. 
+This likely is related to the low variance of sea ice concentrations in that region, where it's almost 100% every September. 
+This can be seen in @fig-sd, that compares interannual standard deviation. 
+
+
+
 ```{r}
 #| label: fig-mean-cor
 #| fig-height: 4
 #| fig-width: 5
 
-gridarea <- cdo_gridarea(CDRv6())[] |>
-  ReadNetCDF(c("cell_area"))
+# gridarea <- cdo_gridarea(CDRv6())[] |>
+#   ReadNetCDF(c("cell_area"))
 
-cors |>
-  gridarea[i = _, on = .NATURAL] |>
-  _[,
-    .(estimate = weighted.mean(estimate, w = cell_area, na.rm = TRUE)),
-    by = .(month, model)
-  ] |>
-  ggplot(aes(month, estimate)) +
-  with_args(list(aes(color = model)), list(geom_line(), geom_point())) +
-  scale_color_models +
-  scale_x_month() +
-  scale_y_continuous("Mean spatial correlation") +
-  coord_cartesian(clip = "off")
+# cors |>
+#   gridarea[i = _, on = .NATURAL] |>
+#   _[,
+#     .(estimate = weighted.mean(estimate, w = cell_area, na.rm = TRUE)),
+#     by = .(month, model)
+#   ] |>
+#   ggplot(aes(month, estimate)) +
+#   with_args(list(aes(color = model)), list(geom_line(), geom_point())) +
+#   # scale_color_models +
+#   scale_x_month() +
+#   scale_y_continuous("Mean spatial correlation") +
+#   coord_cartesian(clip = "off")
 ```
 
 ```{r}
 #| label: fig-sd
+#| fig-height: 6
+#| fig-width: 8 
 sims |>
   _[,
     cdo_ymonstd(file)[] |>
@@ -1227,9 +1197,10 @@ sims |>
       geom_contour_tanaka()
     )
   ) +
-  geom_antarctica_fill +
   as.discretised_scale(scale_fill_viridis_c)("Standard deviation") +
+  geom_antarctica_fill +
   scales_antarctica +
+  lonlat_lines +
   facet_grid(
     month ~ model,
     labeller = labeller(month = labels_month, variable = labels_models)
@@ -1237,7 +1208,12 @@ sims |>
   wide_legend
 ```
 
+
 ## CMIP6
+
+The realtionship implied in @fig-daice-monthly is assumed to be an emergent property of thermodynamic processes and interactions between sea ice and the atmosphere. 
+To understand to what extent this relationship is stable and predictive of sea ice behaviour, we analyse it using historical simulations and SSP585 projections of CMIP6 models. 
+
 
 ```{r}
 #| label: cmip_files
@@ -1303,12 +1279,13 @@ cmip_grid_split[, model := model_order(model)]
 
 ```{r}
 #| label: fig-cmip-historical
+#| fig-cap: Same as @fig-daice-monthly but for historical CMIP6 simulations in the preiod 1850--2014. The purple line marks the zero line from observations for comparison. Models ordered by ascending root mean square error compared with observations. 
+#| fig-width: 9
+#| fig-height: 8
 plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
-
+plot_daice_monthly2@scales <- plot_daice_monthly2@scales$clone()
 plot_daice_monthly2@layers <- plot_daice_monthly2@layers[1:3]
-# plot_daice_monthly2@scales$scales[[
-#   3
-# ]]$name <- "Difference between\n2-metre temperature and SST (°C)"
+
 
 plot_daice_monthly2 +
   cmip_grid[experiment == "historical"][, value := daice] +
@@ -1323,48 +1300,105 @@ plot_daice_monthly2 +
     data = grid_monthly[n > 10],
     breaks = 0,
     colour = scales::muted("violet"),
-    label = "obs",
+    label = "Observations",
     label.placer = label_placer_fraction(0.5),
     aes(z = daice),
   ) +
-  facet_wrap(~model)
+  facet_wrap(~model) +
+  tag_facets(position = "tr") +
+  theme(tagger.panel.tag.background = element_rect(fill = "white", colour = NA))
 ```
 
 
+@fig-cmip-historical shows the relationship between sea ice concentration change, air temparature and sea ice concentration. 
+All models the relationship follows the overall shape found in observations, indicating that this is a stable and physically meaninful relationship. 
+However, there are indeed variation between models. 
+Focusing only on the zero line, we observe that most models have a melt bias, in the sense that they lose sea ice at lower temperaturess than in observations. 
+MIROC6 ([Fig. @fig-cmip-historical]s) is a particularly loses ice at temperatures as cold as -6°C at 50% sea ice concentration. 
+The only models with a freeze bias (ice growing at higher temperatures than in observations) are ACCESS-CM2 and NESM3 ([Fig. @fig-cmip-historical]g and i). 
+
+
 ```{r}
-#| label: fig-cmip-ssp585
-plot_daice_monthly2 +
-  cmip_grid[experiment == "ssp585"][, value := daice][,
-    model := model_order(model)
-  ] +
-  geom_contour_fill(
-    aes(z = n, fill = NULL),
-    breaks = c(0, 100),
-    fill = "gray",
-    color = "gray30",
-    alpha = 0.5
-  ) +
-  geom_contour2(
-    data = cmip_grid[experiment != "ssp585"][, model := model_order(model)],
-    colour = scales::muted("violet"),
-    breaks = b,
-    aes(z = daice, linetype = factor(-sign(..level..))),
-  ) +
-  facet_wrap(~model)
+#| label: fig-rmse-bias
+#| fig-cap: RMSE of models. 
+#| fig-width: 5
+#| fig-height: 5
+
+cmip_bias <- cmip_grid |>
+  _[grid_monthly, on = c("t2m", "aice")] |>
+  _[n > 10 & i.n > 10] |>
+  _[!is.na(experiment)] |>
+  _[, average(daice - i.daice), by = .(model, experiment)]
+
+mmm <- merge(
+  cmip_rmse |>
+    _[, average(estimate), by = .(experiment)] |>
+    _[, model := "Mean"],
+  cmip_bias |>
+    _[, average(estimate), by = .(experiment)] |>
+    _[, model := "Mean"],
+
+  by = c("model", "experiment"),
+  suffixes = c("_rmse", "_bias")
+) |>
+  _[experiment == "historical"]
+
+
+n_negative <- cmip_bias[experiment == "historical"] |>
+  _[!(low < 0 & high > 0)] |>
+  _[, sum(estimate < 0)]
+
+n_zero <- cmip_bias[experiment == "historical"] |>
+  _[low < 0 & high > 0] |>
+  nrow()
+
+n_models <- uniqueN(cmip_bias$model)
+
+gdata <- cmip_rmse |>
+  copy() |>
+  merge(
+    cmip_bias,
+    by = c("model", "experiment"),
+    suffixes = c("_rmse", "_bias")
+  ) |>
+  _[experiment == "historical"] |>
+  _[, model := model_order(model)]
+
+
+gdata |>
+  ggplot(aes(estimate_rmse, estimate_bias)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "gray50") +
+  geom_errorbar(aes(ymin = low_bias, ymax = high_bias)) +
+  geom_errorbar(aes(xmin = low_rmse, xmax = high_rmse)) +
+  geom_point() +
+  ggrepel::geom_text_repel(aes(label = model)) +
+  scale_x_continuous("RMSE") +
+  scale_y_continuous("Bias")
 ```
 
-
-
+This evaluation of bias is incomplete since it is only based on the zero line and ignores the magntiude of melt of freeze at different temperatures and sea ice concentrations. 
+@fig-rmse-bias shows the bias and RMSE in change in sea ice concentration of each model compared with observations. 
+Of the `r n_models` evaluated models, `r n_negative` have an overall negative bias and `r n_models - n_zero - n_negative` have positive bias an compared with observations. 
+ACCESS-ESM1.5 is the only model that has statistically no bias in the historical simulation. 
+With the exception of MIROC6, the magnitude of positive biases is similar to the magitude of negative biases, and the average bias accross models is `r with(mmm, stat2text(estimate_bias, low_bias, high_bias))`, indicating that neither warm nor cold models dominate. 
+However, models with negative bias tend to have larger RMSE, indicating large errors that compensate. 
 
 ```{r}
-#| label: fig-rmse-area
+#| label: area_obs
 area_obs <- CDRv6() |>
   cdo_fldint() |>
   cdo_ymonmean() |>
   ReadNetCDF("aice") |>
   _[, month := month(time)]
+```
 
-cmip_files[variable == "siconc"] |>
+```{r}
+#| label: fig-cmip-errors
+#| fig-cap: Relationship between errors in ice-temperature relationship and errors in the seasonal cycle of sea ice area. RMSE in panel a, bias in panel b.
+#| fig-width: 9
+#| fig-height: 4
+
+plot_rmse <- cmip_files[variable == "siconc"] |>
   _[experiment == "historical"] |>
   # _[startsWith(model, "ACCESS-CM")] |>
   _[,
@@ -1378,13 +1412,51 @@ cmip_files[variable == "siconc"] |>
   _[area_obs, on = "month"] |>
   _[, rmse(aice, area / 100), by = model] |>
   _[rmse_factor, on = "model"] |>
-  ggplot(aes(estimate, rmse)) +
+  ggplot(aes(rmse, estimate)) +
   geom_point() +
   geom_smooth(method = "lm") +
   ggrepel::geom_text_repel(aes(label = model)) +
-  scale_y_continuous("RMSE of sea ice area seasonal cycle") +
+  scale_y_continuous(
+    "RMSE of sea ice area seasonal cycle",
+    labels = labels_extent
+  ) +
   scale_x_continuous("RMSE of daice temperature")
+
+
+plot_bias <- cmip_files[variable == "siconc"] |>
+  _[experiment == "historical"] |>
+  # _[startsWith(model, "ACCESS-CM")] |>
+  _[,
+    cdo_fldint(file)[] |>
+      ReadNetCDF(c(area = "siconc")),
+    by = .(model, experiment)
+  ] |>
+  _[year(time) > 1981] |>
+  _[, .(area = mean(area)), by = .(model, month(time))] |>
+  _[, model := model_order(model)] |>
+  _[area_obs, on = "month"] |>
+  _[, .(area_bias = mean(area / 100 - aice)), by = model] |>
+  _[cmip_bias[experiment == "historical"], on = "model"] |>
+  ggplot(aes(estimate, area_bias)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ggrepel::geom_text_repel(aes(label = model)) +
+  scale_y_continuous(
+    "Bias of sea ice area seasonal cycle",
+    labels = labels_extent
+  ) +
+  scale_x_continuous("Bias of daice temperature")
+
+plot_rmse + plot_bias
 ```
+
+To test if errors in the temperature-ice relationship translate to errors in model representation of sea ice, @fig-cmip-errors compares these errors with errors in the representation of the seasonal cycle. 
+RMSE of the temperature-ice relationship is highly predictive of RMSE in the seasonal cycle. 
+Models where this relation is similar to observations simulate a seasonal cycle closer to the observed. 
+Bias is less predictive than RMSE. 
+Even models with a freeze bias, like CESM2_WACCM or ACCESS-CM2, exhibit a negative sea ice area bias. 
+There is a trend for lower negative sea ice area bias in those models with freeze bias, but that relationship is weaker than the RMSE one. 
+
 
 
 ## Conclusions
@@ -1393,6 +1465,34 @@ cmip_files[variable == "siconc"] |>
 
 ## Suppolementary figures
 
+
+
+```{r}
+#| label: fig-daice-monthly-sst
+#| fig-height: 5
+#| fig-width: 10
+#| fig-cap: Same as @fig-daice-monthly but using the difference between 2-metre temperature and SST. 
+
+plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
+plot_daice_monthly2@scales <- plot_daice_monthly2@scales$clone()
+
+plot_daice_monthly2@layers <- plot_daice_monthly2@layers[1:4]
+plot_daice_monthly2@scales$scales[[
+  3
+]]$name <- "Difference between\n2-metre temperature and SST (°C)"
+
+plot_daice_monthly2 +
+  (daice |>
+    _[!is.na(daice)] |>
+    _[,
+      .(value = mean(daice), n = sum(!is.na(daice))),
+      by = .(
+        t2m = cut_mid(t2m - sst, 0.2, 0),
+        aice = cut_mid(aice, 0.01, 0.11)
+      )
+    ]) +
+  facet_null()
+```
 
 
 ```{r}
@@ -1438,6 +1538,53 @@ plot_daice_monthly2 +
   ) +
   facet_wrap(~model)
 ```
+
+
+```{r}
+#| label: fig-cmip-ssp585
+plot_daice_monthly2 +
+  cmip_grid[experiment == "ssp585"][, value := daice][,
+    model := model_order(model)
+  ] +
+  geom_contour_fill(
+    aes(z = n, fill = NULL),
+    breaks = c(0, 100),
+    fill = "gray",
+    color = "gray30",
+    alpha = 0.5
+  ) +
+  geom_contour2(
+    data = cmip_grid[experiment != "ssp585"][, model := model_order(model)] |>
+      _[n > 10],
+    breaks = b,
+    aes(z = daice, linetype = factor(-sign(..level..))),
+  ) +
+  facet_wrap(~model)
+```
+
+
+```{r}
+#| label: fig-cmip-seasonal
+cmip_files[variable == "siconc"] |>
+  _[experiment == "historical"] |>
+  # _[startsWith(model, "ACCESS-CM")] |>
+  _[,
+    cdo_fldint(file)[] |>
+      ReadNetCDF(c(area = "siconc")),
+    by = .(model, experiment)
+  ] |>
+  _[year(time) > 1981] |>
+  _[, .(area = mean(area)), by = .(model, month(time))] |>
+  _[, model := model_order(model)] |>
+  set_labels() |>
+  ggplot(aes(month, area / 100)) +
+  geom_line(data = area_obs, aes(y = aice), colour = "gray") +
+  geom_line() +
+  facet_wrap(~model) +
+  scale_y_continuous("Sea ice area", labels = labels_extent) +
+  scale_x_month()
+```
+
 
 ## Acknowledgments
 

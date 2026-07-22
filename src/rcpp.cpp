@@ -29,7 +29,8 @@ NumericVector daice(NumericVector ta, NumericVector c, double to = -1.8,
     double t_dif = ta[i] - tf;
     // t_dif = t_dif / (1.0 + std::abs(t_dif)); 
 
-    double air_flux =  alpha * t_dif * (1.0 - c[i]) ;
+    double air_flux =  alpha * t_dif * (1.0 - c[i]);
+
     double prop = air_flux / (1.0 + std::abs(air_flux));
 
     if (air_flux > 0) {

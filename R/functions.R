@@ -49,7 +49,7 @@ median_ci <- function(x, ci = .95) {
 }
 
 average <- function(x) {
-  test <- t.test(x)
+  test <- stats::t.test(x)
   list(
     estimate = test$estimate,
     low = test$conf.int[1],
@@ -560,7 +560,7 @@ with_args <- function(args, calls) {
           # inner positional arg overrides outer positional arg at same slot
           merged[[outer_unnamed_pos[pos_i]]] <- existing[[i]]
         } else {
-          merged <- c(merged, setNames(existing[i], ""))
+          merged <- c(merged, stats::setNames(existing[i], ""))
         }
       } else {
         merged[[nm]] <- existing[[i]]
