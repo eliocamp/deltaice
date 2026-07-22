@@ -68,3 +68,5 @@ data
 
 src/rcpp-cache
 _freeze/
+.vdoc.*
+.positron-temp*
