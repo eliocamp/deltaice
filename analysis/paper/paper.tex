@@ -109,6 +109,7 @@
 \usepackage[inline]{trackchanges} %for better track changes. finalnew option will compile document with changes incorporated.
 \usepackage{soul}
 \linenumbers
+\usepackage{layouts}
 \makeatletter
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \AtBeginDocument{%
@@ -155,7 +156,7 @@
 \urlstyle{same}
 \hypersetup{
   pdftitle={Preparing your manuscript},
-  pdfauthor={Michael J Mahoney; Charles Teague},
+  pdfauthor={Elio Campitelli},
   colorlinks=true,
   linkcolor={blue},
   filecolor={Maroon},
@@ -171,13 +172,13 @@
 \begin{document}
 \title{Preparing your manuscript}
 
-\authors{Michael J Mahoney\affil{1,}\thanks{Translated template to
-Quarto.}, Charles Teague\affil{2}}
-\affiliation{1}{Graduate Program in Environmental Science, State
-University of New York College of Environmental Science and
-Forestry, Syracuse, NY, USA}\affiliation{2}{Posit,
-PBC, Boston, Massachusetts, USA}
-\correspondingauthor{Charles Teague}{charles@posit.co}
+\authors{Elio Campitelli\affil{1,2}}
+\affiliation{1}{School of Earth, Atmosphere and Environment, Monash
+University, Kulin Nations,
+Clayton, Victoria, Australia}\affiliation{2}{ARC Special Research
+Initiative for Securing Antarctica's Environmental Future, Kulin
+Nations, Clayton, Victoria, Australia}
+
 
 \begin{keypoints}
 \item Key Points convey the main points and conclusions of the
@@ -237,12 +238,6 @@ your scientific discipline. Read our tips for creating an effective PLS.
 \end{itemize}
 
 \section{Results}\label{results}
-
-\begin{itemize}
-\tightlist
-\item
-  Description of the conceptual model + equations
-\end{itemize}
 
 \subsection{Simple model of sea ice
 growth}\label{simple-model-of-sea-ice-growth}
@@ -473,14 +468,41 @@ not explain the observed shaped of the ice-temperature surface. A nudge
 would also not be compatible with the observed zero melt at 100\% sea
 ice concentration.
 
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-grid-sd-1.png}}
+
+}
+
+\caption{\label{fig-grid-sd}Standard deviation}
+
+\end{figure}%
+
+The average error of predicting \(\dot{i}\) from air temperature and sea
+ice concentration, estimated as the standard deviation of observations
+conditioned by the mean value shown in Figure~\ref{fig-daice-monthly}
+panel a excluding air temperature greater than 0°C and no ice is
+present, is 0.160. For comparison, the standard deviation of sea ice
+change is 0.232. Air Temperature and sea ice concentration therefore
+explains 52\% of the variance in sea ice concentration change.
+Figure~\ref{fig-grid-sd} shows the standard deviation of sea ice change
+as a function of temperature and sea ice concentration and illustrates
+that this mean error is in no way homogeneous. Both for low sea ice
+concentrations at higher temperatures, and for high sea ice
+concentration at low temperature the error is lower than 0.15. The error
+increases to between 0.2 and 0.35 at temperatures between -5°C and -3°C
+and sea ice concentration below 0.75. This suggests that ice dynamics
+and ocean processes are particularly important at these intermediate
+tempeartures
+
 \section{Integration of the model}\label{integration-of-the-model}
 
-Even a perfect fit to the observed average relationship will only
-capture a fracton of the total variabilty of sea ice, since it ignores a
-multitude of external factors and internal sea ice proceses. To explore
-how much can be explained, we integrate the model based on observations
-and the simple model in time using 2-metre temperature fields from ERA5
-as forcing from 1983 to 2023.
+To understand what aspects of sea ice variabilty can be explained by
+this model we integrate the model based on observations and the simple
+model in time using 2-metre temperature fields from ERA5 as forcing from
+1983 to 2023.
 
 \begin{figure}
 
@@ -571,9 +593,17 @@ Figure~\ref{fig-sd}, that compares interannual standard deviation.
 
 }
 
-\caption{\label{fig-sd}}
+\caption{\label{fig-sd}Interannual monthly standard deviation of monthly
+mean sea ice concentration anomalies for February and September and for
+each model and observations.}
 
 \end{figure}%
+
+While the statistical model does well in terms of correlation and
+Pan-Antarctic sea ice area, one important limitation is that the
+variabilyt of the simulated sea ice concentrations is much lower than
+either observations or the coupled model simulation
+(Figure~\ref{fig-sd}). Lower variabilty is not unexpected since the
 
 \section{CMIP6}\label{cmip6}
 
@@ -665,7 +695,7 @@ freeze bias, but that relationship is weaker than the RMSE one.
 
 \section{Conclusions}\label{conclusions}
 
-\section{Suppolementary figures}\label{suppolementary-figures}
+\section{Supplementary figures}\label{supplementary-figures}
 
 \begin{figure}
 
@@ -689,7 +719,8 @@ temperature and SST.}
 
 }
 
-\caption{\label{fig-cmip-historical_old}}
+\caption{\label{fig-cmip-historical_old}Same as
+Figure~\ref{fig-cmip-historical} but for the period 1985--XXX.}
 
 \end{figure}%
 
@@ -701,7 +732,8 @@ temperature and SST.}
 
 }
 
-\caption{\label{fig-cmip-historical_new}}
+\caption{\label{fig-cmip-historical_new}Same as
+Figure~\ref{fig-cmip-historical} but for the period XXX--2014.}
 
 \end{figure}%
 
@@ -713,19 +745,8 @@ temperature and SST.}
 
 }
 
-\caption{\label{fig-cmip-ssp585}}
-
-\end{figure}%
-
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-seasonal-1.png}}
-
-}
-
-\caption{\label{fig-cmip-seasonal}}
+\caption{\label{fig-cmip-ssp585}Same as Figure~\ref{fig-cmip-historical}
+but for SSP585 scenario}
 
 \end{figure}%
 
