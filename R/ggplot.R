@@ -13,19 +13,21 @@ element_grob.element_text_first_line <-
     NextMethod()
   }
 
-
-ggplot2::theme_set(
-  ggplot2::theme_minimal() +
-    ggplot2::theme(
-      panel.background = ggplot2::element_rect(fill = "#fafafa", color = NA),
-      legend.position = "bottom",
-      legend.title.position = "top",
-      legend.title = ggplot2::element_text(hjust = 0.5),
-      legend.frame = ggplot2::element_rect(color = "black", linewidth = 0.4),
-      legend.key.height = grid::unit(0.75, "lines"),
-      axis.text.y = element_text_first_line()
-    )
-)
+set_theme <- function() {
+  ggplot2::theme_set(
+    ggplot2::theme_minimal() +
+      ggplot2::theme(
+        panel.background = ggplot2::element_rect(fill = "#fafafa", color = NA),
+        legend.position = "bottom",
+        legend.title.position = "top",
+        legend.title = ggplot2::element_text(hjust = 0.5),
+        legend.frame = ggplot2::element_rect(color = "black", linewidth = 0.4),
+        legend.key.height = grid::unit(0.75, "lines"),
+        axis.text.y = element_text_first_line(),
+        plot.margin = ggplot2::margin_part(r = 12, l = 12) # double margin
+      )
+  )
+}
 wide_legend <- ggplot2::theme(legend.key.width = grid::unit(1, 'null'))
 
 

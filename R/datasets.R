@@ -386,7 +386,6 @@ cmip_get <- function(variable, experiment, member = "r1i1p1f1", model = "*") {
 cmip_selantmerge <- function(files) {
   dir <- here::here("data/derived/cmip6")
   out <- file.path(dir, basename(files[1]))
-  grid <- CDR_grid()
   lapply(files, \(x) {
     x |>
       rcdo::cdo_remapbil("r360x180") |>

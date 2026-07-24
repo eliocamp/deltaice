@@ -1,5 +1,5 @@
 ---
-title: "Preparing your manuscript"
+title: "Sea Ice Concentration State-dependent Response to Air Temperature"
 format:
     agu-pdf:
         keep-tex: true
@@ -37,7 +37,8 @@ abstract-section:
     - abstract
     - plain-language-summary  
 
-header-includes: \usepackage{layouts}
+header-includes: 
+  -  \usepackage[colorinlistoftodos]{todonotes}
 ---
 
 ## Abstract
@@ -54,6 +55,8 @@ The abstract (1) states the nature of the investigation and (2) summarizes the i
 ## plain-language-summary
 
 A Plain Language Summary (PLS) can be an incredibly effective science communication tool. By summarizing your paper in non-technical terms, you can explain your research and its relevance to a much broader audience. A PLS is required for submissions to AGU Advances, G-Cubed, GeoHealth, GRL, JAMES, JGR: Biogeosciences, JGR: Oceans, JGR: Planets, JGR: Solid Earth, JGR: Atmospheres, Space Weather, and Reviews of Geophysics, but optional for other journals.  A PLS should be no longer than 200 words and should be free of jargon, acronyms, equations, and any technical information that would be unknown to people from outside your scientific discipline. Read our tips for creating an effective PLS.
+
+
 
 
 ## Introduction
@@ -90,18 +93,7 @@ box::use(R / functions[...])
 box::use(R / integration[evolve])
 
 source(here::here("R/ggplot.R"))
-
-ggplot2::theme_set(
-  ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(
-      panel.background = ggplot2::element_rect(fill = "#fafafa", color = NA),
-      legend.position = "bottom",
-      legend.title.position = "top",
-      legend.title = ggplot2::element_text(hjust = 0.5),
-      legend.frame = ggplot2::element_rect(color = "black", linewidth = 0.4),
-      legend.key.height = grid::unit(0.75, "lines")
-    )
-)
+set_theme()
 
 range_tanaka <- c(0.01, 0.2)
 ```
@@ -161,19 +153,19 @@ daice <- daice_read()
 I start with a simplified model of sea ice growth.
 In this model, each cell has an area of water and of an area covered with ice. 
 Assuming that sea ice is a perfect insulator, the ocean surface exchanges heat with the atmosphere only in the ice-free surface. 
-This heat flux is parameterised with a bulk formula with a constant exchange coefficient and sea surface temperature is assumed to be constant and equal to the freezing point. 
+This heat flux is parameterised with a bulk formula as a function of air-sea temperature difference and constant exchange coefficient. 
+Sea surface temperature is assumed to be constant and equal to the freezing point. 
 This latter assumption is somewhat justified by the fact that a mixture of water and ice in thermodynamic equilibrium will stay at the freezing point, and any heat gain or loss will either melt or freeze more ice.
 
-The full formula for the heat exchange per unit area then is 
+The full formula for the heat exchange at each gridcell is then
 
 $$
-F = \alpha (T_a - T_f) (1 - I_a)
+F = \alpha (T_a - T_f) (1 - C)
 $$ {#eq-flux}
 
-Where, $T_f$ and $T_a$ are the freezing point temperature of the ocean and the atmosphere respectively, $I_a$ is the proportion of the gridcell covered with ice and $\alpha$ is a proportionality constant. 
+Where, $T_f$ and $T_a$ are the freezing point temperature of the ocean and temperature of the atmosphere respectively, $C$ is the proportion of the gridcell covered with ice and $\alpha$ is a proportionality constant. 
 
-The change in sea ice concentration will be related to $F$. 
-To transform the heat exchange flux to a proportion of sea ice melted or ice-free ocean frozen $F_{p}$, we use this transformation. 
+To relate heat flux to sea ice concentration change, we can assume that $F$ is proportional to the proportion of sea ice melted or ice-free ocean frozen $F_{p}$. 
 
 $$
 F_{p} = \frac{F} {(1 + \left| F \right |)}
@@ -181,20 +173,20 @@ $$
 
 This transformation ensures that $F_p$ is bounded by $\left(0, 1\right)$ and parameterises a saturation point beyond extremely strong fluxes will be partially counteracted by other processes like horizontal and vertical transport of heat within the top layer of the ocean. 
 
-If $F$ is negative, the heat lost to the ocean is balanced by freezing. 
+If $F_p$ is negative, the heat lost to the ocean is balanced by freezing. 
 However, because only ice-free areas can freeze, I assume that the change in sea ice concentration is also proportial to the ice-free area. 
 
 $$
-\dot{I} = -\beta_f F_{p} (1 - I_a)
+\frac{dC}{dt} = -\beta_f F_{p} (1 - C)
 $$
 
 Where $\beta_f$ is a freezing proportionality constant. 
 
-Conversely, if $F$ is positive, the ocean gains heat which is used to melt ice. 
+Conversely, if $F_p$ is positive, the ocean gains heat which is used to melt ice. 
 In this case it is only ice-covered areas which can melt, making the change in sea ice concentration proportional to sea ice concentration itself.
 
 $$
-\dot{I} = -\beta_m F_{p} I_a
+\frac{dC}{dt} = -\beta_m F_{p} C
 $$
 
 Where $\beta_m$ is a memlting proportionality constant that in principle could be different from $\beta_f$. 
@@ -202,20 +194,67 @@ Where $\beta_m$ is a memlting proportionality constant that in principle could b
 The full model, therefore is
 
 $$
-\dot{I} =
+\frac{dC}{dt} =
 \begin{cases}
-\frac{-\beta_f \alpha (T_a - T_f) (1 - I_a)^2 }{ 1 + \alpha (T_a - T_f) (1 - I_a)}    &  T_a \le T_f, \\
-\frac{-\beta_m \alpha (T_a - T_f) (1 - I_a) I_a }{ 1 + \alpha (T_a - T_f) (1 - I_a)}  &  T_a 	> T_f
+\frac{-\beta_f \alpha (T_a - T_f) (1 - C)^2 }{ 1 + \alpha (T_a - T_f) (1 - C)}    &  T_a \le T_f, \\
+\frac{-\beta_m \alpha (T_a - T_f) (1 - C) C }{ 1 + \alpha (T_a - T_f) (1 - C)}  &  T_a 	> T_f
 \end{cases}
 $$ {#eq-model}
 
 ```{r}
 #| label: doti
-doti <- latex2exp::TeX(r"(\dot{I})")
+doti <- latex2exp::TeX(r"(dC/dt)")
+```
+
+This simple models implies a functional form of sea ice concentration tendency as a function of air temperature and sea ice concentration. 
+For conciseness, I will refer to this relationship as the Concentration Tendency Surface (CTS). 
+\todo[inline]{Other options: 
+State-dependent Temperature-Ice Response. STIR. 
+State-dependent Ice Response to Temperature. SIRT
+Concentration-dependent Ice Response to Temperature. CIRT
+Concentration–Temperature Response Surface. CTRS
+Concentration Tendency Surface
+}
+
+
+```{r}
+#| label: fig-theory
+#| fig-cap: Sea ice concentation change as a function of sea ice concentration in the melt and freeze regime defined by @eq-model. Constants are arbitrarily set to 1. 
+#| fig-width: 3
+#| fig-height: 3
+celsius <- \(x) paste0(x, "°C")
+
+CJ(t2m = c(-5, 0), aice = seq(0, 1, length.out = 50)) |>
+  _[, daice := daice(t2m, aice)] |>
+  ggplot(aes(aice, daice)) +
+  geom_line(
+    aes(
+      colour = factor(t2m),
+    ),
+    linewidth = 1
+  ) +
+  scale_y_continuous(doti) +
+  scale_x_continuous(
+    "Monthly mean sea ice concentration",
+    expand = c(0, 0),
+    limits = c(0, 1)
+  ) +
+  scale_colour_manual(
+    NULL,
+    values = c(`-5` = "#1C71D8", `0` = "#C01C28"),
+    labels = c(`-5` = "Freezing", `0` = "Melting")
+  )
 ```
 
 
-## Properties of the model
+To illustrate the basic properties of this simple model, @fig-theory shows the change in monthly sea ice concentration change as function of sea ice concentration for temperatures in the melting and freezing regimes. 
+Parameters are all set arbitrarily to 1. 
+For a given temperature below freezing (blue line), sea ice growth is maximum at low sea ice concentrations since that maximises both the heat loss and ice-free ocean that is available for freezing whereas at high sea ice concentrations heat fluxes are suppressed and there is little open water to freeze, leading to slow growth. 
+For a  given temperature above freezing (red line), sea ice melt is slow both at low concentrations because there is little ice left to melt and at high concentrations because the ice insulates the ocean from the atmosphere. 
+Maximum melt is at around 75% sea ice concentrations, when there is enough ice to melt and enough ice-free ocean for the ocean to exchange heat. 
+
+
+## Observations
 
 
 ```{r}
@@ -246,8 +285,6 @@ grid_monthly <- daice |>
   _[!is.na(aice)]
 ```
 
-
-
 ```{r}
 #| label: model_monthly_training
 
@@ -263,7 +300,6 @@ model_monthly_training <-
     sample(.N, n_samples)
   )]
 ```
-
 
 ```{r}
 #| label: model_monthly
@@ -323,7 +359,6 @@ smooth_grid[, daice := clamp_daice(daice, aice)]
 b <- seq(-1, 1, by = 0.1)
 ```
 
-
 ```{r}
 #| label: tf_model
 zero <- purrr::possibly(
@@ -342,8 +377,6 @@ tf <- grid_monthly[n > 10 & t2m %between% c(-15, 1)] |>
 
 tf_model <- lm(y ~ poly(x, degree = 4, raw = TRUE), data = tf)
 ```
-
-
 
 ```{r}
 #| label: mod_simple
@@ -483,7 +516,6 @@ mod_damping <- minpack.lm::nlsLM(
   withr::with_seed(seed = 42)
 ```
 
-
 ```{r}
 #| label: models
 daice_fitted <- function(mod, aice, t2m) {
@@ -493,7 +525,6 @@ daice_fitted <- function(mod, aice, t2m) {
 high_t <- -1
 low_t <- -7
 
-celsius <- \(x) paste0(x, "°C")
 
 aice_value <- function(t2m_range, max = 1) {
   function(t2m) {
@@ -513,9 +544,11 @@ aice_value <- function(t2m_range, max = 1) {
 labs_models <- c(
   daice = "Observations",
   daice_simple = "Simple model",
+  daice_obs = "Observed CTS",
   daice_tf = "Variable T_f",
   daice_gamma = "Model with extra flux",
-  daice_smooth = "Smooth observations"
+  daice_smooth = "Smooth observations",
+  s2 = "ACCESS_S2"
 )
 
 smooth_grid_coarse <- smooth_grid[, .(
@@ -607,12 +640,24 @@ models |>
 ```
 
 
+These basic properties of the the simple CTS are compared with observations in @fig-aice-lines. 
+Observations are computed by averaging gridcells with temperatures of `r celsius(low_t)` and `r celsius(high_t)` $\pm$ 0.25°C and sea ice concentration values binned at boxes 2% wide. 
+The overall observed curve fits notably well with the simple theory in the melt regime. 
+Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea ice insulation. 
+At 100% sea ice concentrations, melt values are not exactly zero. 
+This in likely partly due to the binning -- which means that these values are actually the average of values between 95% and 100% -- but also likely a real effect that includes many processes that the model doesn't take into account, such as transport, deformation, melting from below and heat exchange through the ice itself. 
+
+In the growth regime, observations don't follow the simple model as well.
+Although, they show low growth at high concentrations and high growth at low concentrations, they deviate from the simple model in two significant ways. 
+First, at sea ice concentrations lower than 25%, growth starts to flatten out.
+This could be due to missing processes, but it is also important to note that satellite observations are increasingly uncertain below ~15% and that there is no data between 0% and 10% concentrations. 
+Second, at high concentrations sea ice actually melts even when exposed to low temperatures. 
 
 ```{r}
 #| label: fig-daice-monthly
 #| fig-height: 4.5
 #| fig-width: 5
-#| fig-cap: Average change in sea ice concentration from current to next month as a function of monthly sea ice concentration in current month and monthly mean 2-m tempretuare in curent month for observations (a) @eq-model (b) and @eq-model-2 (c). The gray area represents regions with less than 10 observations. Horizontal lines at {celsius(low_t)} and {celsius(high_t)} indicate the cross-section shown in @fig-aice-lines.
+#| fig-cap: Concentration Tendency Surfaces for (a) observations (b) @eq-model (c) @eq-model with a varying $T_f$ and (d) @eq-model with extra term of ocean flux. The gray area represents regions with less than 10 observations. Horizontal lines at {celsius(low_t)} and {celsius(high_t)} indicate the cross-section shown in @fig-aice-lines.
 breaks <- seq(-1, 1, by = 0.1)
 
 # rms <- vapply(
@@ -692,40 +737,21 @@ plot_daice_monthly
 ```
 
 
+To understand this deficiency better, @fig-daice-monthly shows the complete CTS for observations and the simple model.
+The black line marks the "zero line" that divides sea ice growth from melt, which is an estimate of the effective $T_f$ in @eq-flux. 
+Contraty to the model's assumption, this zero line is not constant and instead depends heavily on sea ice concentration. 
+At low concentration, air temperature just below -2°C is enough to cause sea ice growth on average, but as sea ice concentration increases, the air needs to be increasingly colder for ice not to melt. 
+At about 50% sea ice concentration, air temperature need to be lower than -5°C for ice to grow. 
+This property cannot be captured by the model in @eq-model, which assumes that sea ice will grow whenever air temperature is below the freezing point of ocean water, which is assumed constant. 
 
-To illustrate the basic properties of this simple model, @fig-aice-lines (dashed lines) shows the change in monthly sea ice concentration change as function of sea ice concentration for one temperature in the melting and freezing regimes. 
-The parameters were fitted to observations using non-linear least squares. 
-For a given temperature below freezing, sea ice growth is maximum at low sea ice concentrations since that maximises both the heat loss and ice-free ocean that is available for freezing. 
-At high sea ice concentrations heat fluxes are suppressed and there is little open water to freeze, leading to slow growth. 
-At a given temperature above freezing, on the other hand, sea ice melt is slow at low concentrations because there is little ice left to melt and at high concentrations because the ice insulates the ocean from the atmosphere. 
-Maximum melt is at around 75% sea ice concentrations, when there is enough ice to melt and enough ice-free ocean for the ocean to exchange heat.
-
-We can compare this model with observed values, computed by averaging gridcells with temperatures of `r celsius(low_t)` and `r celsius(high_t)` $\pm$ 0.25°C and sea ice concentration values binned at boxes 2% wide (solid lines in @fig-aice-lines). 
-The overall curve in observations fits notably well with the simple theory in the melt regime. 
-Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea ice insulation. 
-At 100% sea ice concentrations, melt values are not exactly zero. 
-This in likely partly due to the binning -- which means that these values are actually the average of values between 95% and 100% -- but also likely a real effect that includes many processes that the model doesn't take into account, such as transport, deformation, melting from below and heat exchange through the ice itself. 
-
-In the growth regime, observations follow the simple model roughly; with low growth at high concentrations and high growth at low concentrations. 
-However, it deviates from the model in two significant ways. 
-First, at sea ice concentrations lower than 25%, growth starts to flatten out.
-This could be due to missing processes, but it is also important to note that satellite observations are increasingly uncertain below ~15% and that there is no data between 0% and 10% concentrations. 
-Second, at high concentrations sea ice actually melts even when exposed to low temperatures. 
-
-A more complete picture of the problem is shown in @fig-daice-monthly which shows observed average sea ice concentration change as a function of monthly sea ice concentrations and 2-metre temperature.
-The black line estimates the "zero line" that divides sea ice growth from melt. 
-Thi is essentially an estimate of the effective $T_f$ in @eq-flux. 
-Contraty to the model's assumptiont, this zero line is not constant and instead depends heavily on sea ice concentration. 
-At low concentrations, air temperatures just below -2°C are enough to cause sea ice growth on average, but as sea ice concentrations rise, the air needs to be increasingly colder for ice not to melt. 
-At about 50% sea ice concentration, air temperatures need to be lower than -5°C for ice to grow. 
-This property cannot be captured by the model in @eq-model, which assumes that sea ice will grow whenever air temperature is below the freezing point of ocean water, whose dependency with salinity is nowhere near as strong. 
-
-One possible problem could be the assumption that ocean temperatures are constant. 
+The freezing point of water depends on salinity and sea ice growth and melt directly affect surface salinity by brine rejection and releasing fresh water. 
+However, no normal sea surface salinity value could explain a freezeing temperature of -5°C or below. 
+Another possible issue is the assumption that ocean temperatures are constant. 
 However, reproducing the same plot but using the difference between 2-metre air temperature and SST results in almost the same relationship (@fig-daice-monthly-sst).
 
-
+The simple model could be altered to try to account for this discrepancy to gain insights into what is causing it. 
 A direct refinement of the model is to postulate an ad-hoc dependency of $T_f$ on sea ice concentration. 
-The black line in @fig-daice-monthly is well modelled a fourth degree polinomial in @eq-tf-model fitted by linear regression. 
+The black line in @fig-daice-monthly panel a is well modelled a fourth degree polinomial in @eq-tf-model fitted by linear regression. 
 
 ```{r}
 #| output: asis
@@ -733,7 +759,7 @@ The black line in @fig-daice-monthly is well modelled a fourth degree polinomial
 coefmodel <- coef(tf_model)
 powers <- seq_along(coefmodel) - 1
 
-term <- ifelse(powers != 0, "I", "")
+term <- ifelse(powers != 0, "C", "")
 power <- ifelse(powers > 1, paste0("^", powers), "")
 term <- paste0(term, power)
 
@@ -749,42 +775,41 @@ rhs <- paste0(term, collapse = " ")
 cat(paste0("$$\nT_f = ", rhs, "\n$$ {#eq-tf-model}"))
 ```
 
-This model reproduces the dependency of $T_f$ on sea ice concentration by definition (@fig-aice-lines c), and matches the overall shape relatively well (@fig-daice-monthly c).
+Replacing the constant $T_f$ in @eq-model with the expression in @eq-tf-model and fitting the parameters using observed data results in the CTS shown in @fig-daice-monthly panel c. 
+This model reproduces the dependency of $T_f$ on sea ice concentration by definition. 
 However, it slightly overestimates the melt ocurring at low temperatures at high sea ice concentrations and features a discontinuity in the derivative of $dI/dt$ with respect to sea ice concentration, creating a "kink" seen in @fig-aice-lines c. 
-Moreover, this is a wholelly ad-hoc modification. 
-Regardless of goodness-of-fit, it would be preferrable to have a model in which the dependency of  $T_f$ with sea ice concentration arised as an emergent property from physically motivated rules. 
+Moreover, as this is a wholly ad-hoc modification, it is not usefull to understand the physical processes that create this dependency. 
+It would be preferrable to have a model in which the dependency of  $T_f$ with sea ice concentration arised as an emergent property from physically motivated rules. 
 
-A physics-based refinement of the model is pressupose a positive heat flux representing warming of the water from the bottom by mixing of relatively warmer subsurface water. 
+A physics-based refinement of the model is to pressupose a positive heat flux representing warming of the water from the bottom by mixing of relatively warmer subsurface water. 
 Under this formulation, ice would grow only if the freezing at the surface from the atmosphere was larger than the melting from the ocean, which would require more extreme air temperature when ice insulation is higher at higher concentrations, thus creating an effective dependency on $T_f$ on sea ice concentration. 
 Both wind forcing and waves can induce mixing, and both are dampened by the presence of sea ice, therefore this flux should also be proportional to the ice-free area.
-
 In this full model the change in sea ice concentration is decomposed into change due to air fluxes and ocean fluxes. 
 
 $$
-\dot{I} = \dot{I}|_a  + \dot{I}|_o 
+\frac{dC}{dt} = \left.\frac{dC}{dt}\right|_a  + \left.\frac{dC}{dt}\right|_o 
 $$
 
-Where $\dot{I}|_a$ is computed as before and $\dot{I}|_o$ is 
+Where $\left.\frac{dC}{dt}\right|_a$ is the air temperature-induced changed computed as before and $\left.\frac{dC}{dt}\right|_o $ is the bottom ocean 
 
 $$
-\dot{I}|_o = \beta_m F_o I 
+\left.\frac{dC}{dt}\right|_o = \beta_m F_o C 
 $$
 
-Where $F_o = \gamma(1 - I)$. 
+Where $F_o = \gamma(1 - C)$. 
+The new parameter $\gamma$ modulates the strength of the flux. 
 
-The results of this model are shown in @fig-aice-lines d and @fig-daice-monthly d.
+The results for this model with parameters fitted to observations are shown in @fig-aice-lines d and @fig-daice-monthly d.
 This model produces a $T_f$ dependency comparable with observations, although the exact shape is clearly not correct; it is too flat at low sea ice concentrations and too steep at high sea ice concentrations. 
-Nevertheless, it suggest that ocean processes might be responsible for this phenomenon. 
+Nevertheless, it suggests that ocean processes might be responsible for this phenomenon. 
 
 An alternative model imposing a damping forcing that relaxes sea ice concentrations towards a temperature-dependent value were tried. 
-This tries to simulate that gridpoints with either particularly high or low sea ice concentration values compared with their surroundings will tend to either export ice away or gain ice from their neighbours. 
-However, the estimated damping strength from observations was minimal and could not explain the observed shaped of the ice-temperature surface. 
-A nudge would also not be compatible with the observed zero melt at 100% sea ice concentration. 
+This formulation would attempt to take into account that gridpoints with either particularly high or low sea ice concentration values compared with their surroundings will tend to either export ice away or gain ice from their neighbours. 
+However, the estimated damping strength from observations was minimal and could not explain the observed shaped of the ice-temperature surface and was not consistent with the observed minimal melt at 100% sea ice concentraions. 
 
 
 ```{r}
 #| label: grid_monthly_rmse
-
 var_cond <- daice |>
   copy() |>
   _[, let(t2m = cut_mid(t2m, 0.2, 0), aice = cut_mid(aice, 0.01, 0.11))] |>
@@ -833,16 +858,15 @@ grid_monthly |>
   as.discretised_scale(scale_fill_viridis_c)("SD")
 ```
 
-The average error of predicting $\dot{i}$ from air temperature and sea ice concentration, estimated as the standard deviation of observations conditioned by the mean value shown in @fig-daice-monthly panel a excluding air temperature greater than 0°C and no ice is present, is `r scales::number(sqrt(var_cond$var_cond), accuracy = 0.001)`. 
+\todo[]{I feel this part needs to be moved before, like a justification to show that the Concentration Tendency Surface actually exists}The average error of the predicting $dC/dt$ from air temperature and sea ice concentration, estimated as the standard deviation of observations conditioned by the observed Concentration Tendency Surface (@fig-daice-monthly panel a) excluding air temperature greater than 0°C and no ice is present, is `r scales::number(sqrt(var_cond$var_cond), accuracy = 0.001)`. 
 For comparison, the standard deviation of sea ice change is `r scales::number(sqrt(var_cond$var), accuracy = 0.001)`.
-Air Temperature and sea ice concentration therefore explains `r scales::percent(var_cond[, 1- var_cond/var])` of the variance in sea ice concentration change. 
-@fig-grid-sd shows the standard deviation of sea ice change as a function of temperature and sea ice concentration and illustrates that this mean error is in no way homogeneous. 
+The Concentration Tendency Surface therefore explains `r scales::percent(var_cond[, 1- var_cond/var])` of the variance in sea ice concentration change. 
+@fig-grid-sd shows the standard deviation of $dC/dt$ as a function of temperature and sea ice concentration and illustrates that this mean error is in no way homogeneous. 
 Both for low sea ice concentrations at higher temperatures, and for high sea ice concentration at low temperature the error is lower than 0.15.
 The error increases to between 0.2 and 0.35 at temperatures between -5°C and -3°C and sea ice concentration below 0.75. 
-This suggests that ice dynamics and ocean processes are particularly important at these intermediate tempeartures 
+This suggests that ice dynamics and ocean processes are particularly important at these intermediate tempeartures. 
 
-
-## Integration of the model
+## Using the Concentration Tendency Surface to predict sea ice
 
 ```{r}
 #| label: start
@@ -874,7 +898,13 @@ time_fun <- \(t) {
 forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
 ```
 
-To understand what aspects of sea ice variabilty can be explained by this model we integrate the model based on observations and the simple model in time using 2-metre temperature fields from ERA5 as forcing from `r year(int_range[1])` to `r year(int_range[2])`. 
+Since the Concentration Tendency Surface defines a prognostic equation of sea ice concentration, we can integrate it in time using temperature fields as forcing. 
+This can help in understanding what aspects of sea ice variabilty can be explained by the Concentration Tendency Surface. 
+By integrating both the Concentration Tendency Surface from @eq-model and the observed one (@fig-fig-daice-monthly panels b and a respectively) I can further analyise the impact of modelling the dependency of $T_f$ on sea ice concentration. 
+The observed Concentration Tendency Surface is not defined for unobserved values of sea ice concentation and temperatures and it is highly uncertain in region of that space with sparce observations.
+To address both issues, I smooth the surface with 2D loess smooth utilising only parts of the grid with more than 100 observations and extrapolate the extreme values in regions with no data. 
+I use ERA5 2-m temperature as forcing and integrate the models using January `r year(int_range[1])` observations as initial conditions and run it until December `r year(int_range[2])`. 
+For comparison, I use sea ice concentration forecasts with a 1 month lead time by ACCESS-S2 [REF], the Bureau of Meteorology Subseasonal to Seasonal prediction model. 
 
 ```{r}
 #| label: d_aice
@@ -909,8 +939,8 @@ lm_to_dice <- function(model) {
 ```{r}
 #| label: d_aice-models
 models <- list(
-  model_obs = d_ice(make_grid_matrix(smooth_grid)),
-  mod_simple = lm_to_dice(mod_simple)
+  daice_obs = d_ice(make_grid_matrix(smooth_grid)),
+  daice_simple = lm_to_dice(mod_simple)
 )
 ```
 
@@ -954,7 +984,7 @@ simulate_model <- function(model) {
 ```{r}
 #| label: sim
 sims <- lapply(models, simulate_model) |>
-  c(list(obs = CDRv6(), s2 = s2()))
+  c(list(daice = CDRv6(), s2 = s2()))
 
 sims <- data.table(model = names(sims), file = unlist(sims))
 ```
@@ -978,26 +1008,24 @@ area <- sims[,
 area |>
   # _[year(time) %between% c(1990, 2000)] |>
   _[, median_ci(area), by = .(month(time), model)] |>
-  _[, base := estimate[model == "obs"], by = month] |>
-  # _[model != "obs"] |>
+  _[, daice := estimate[model == "daice"], by = month] |>
   set_labels() |>
   ggplot(aes(month, estimate)) +
   geom_ribbon(aes(ymin = low, ymax = high), alpha = 0.2) +
-  geom_line(aes(y = base), color = "gray") +
+  geom_line(aes(y = daice), color = "gray") +
   geom_line() +
   scale_y_continuous(NULL, labels = labels_extent) +
   scale_x_month() +
   coord_cartesian(clip = "off") +
-  facet_wrap(~model, ncol = 1)
+  facet_wrap(~model, ncol = 1, labeller = labeller(model = labs_models))
 ```
 
-The temperature-based models seem to do quite well compared with a coupled model.
+The Concentration Tendency Surfaces seem to simulate sea ice quite well compared with a coupled model.
 @fig-seasonal-cycle shows the seasonal cycle of sea ice area for of simulations based on the simple model, the model based on observations and 1-month forecast of ACCESS-S2. 
-Both temperature-based models experience a seasonal cycle of similar amplitude to observations, although the in the simple model, its phase is shited by about one month. 
+Both CTS-based models experience a seasonal cycle of similar amplitude to observations, although the in the simple model, its phase is shited by about one month. 
 
 ```{r}
 #| label: lonlat_lines
-
 grid <- CDRv6() |>
   ReadNetCDF(subset = list(time = I(c(1, 2)))) |>
   _[, .(x, y)] |>
@@ -1037,25 +1065,13 @@ lonlat_lines <- with_args(
 #| fig-cap: Sea ice concentration bias compared with observations for February and September. 
 #| fig-width: 5
 #| fig-height: 4
-
-# label_placer_mag <- function(
-#   rot_adjuster = isoband::angle_halfcircle_bottom()
-# ) {
-#   label_placer <- function(x, y) {
-#     which.max(x^2 + y^2)
-#   }
-#   metR:::as_placer(label_placer, rot_adjuster = rot_adjuster)
-# }
-
 sims |>
   _[, .(file = cdo_ymonmean(file)[]), by = model] |>
-  _[, base := file[model == "obs"]] |>
-  _[model != "obs"] |>
+  _[, base := file[model == "daice"]] |>
+  _[model != "daice"] |>
   _[, cdo_sub(file, base) |> cdo_selmonth("2,9") |> _[], by = model] |>
   _[, ReadNetCDF(V1, "aice"), by = model] |>
   _[, month := month(time)] |>
-  # _[month == 2] |>
-  # _[model == "mod_simple"] |>
   ggplot(aes(x, y)) +
   with_args(
     list(aes(z = aice), breaks = AnchorBreaks(exclude = 0, binwidth = 0.1)),
@@ -1065,13 +1081,12 @@ sims |>
     )
   ) +
   as.discretised_scale(scale_fill_gradient2)("Bias") +
-
   geom_antarctica_fill +
   lonlat_lines +
   scales_antarctica +
   facet_grid(
     month ~ model,
-    labeller = labeller(month = labels_month, model = labels_models)
+    labeller = labeller(month = labels_month, model = labs_models)
   ) +
   wide_legend +
   tag_facets(tag = "rc")
@@ -1079,8 +1094,8 @@ sims |>
 
 However, this aggregated quantity hides spatial variation. 
 @fig-bias shows that sea ice concentration bias localy high in the models.
-ALl three models show a strong low concentration bias in the Weddell Sea in February, while statistical models also exhibit high concentraiton bias in the Ross Sea. 
-It is likely that the lack of dynamical processes in the statistical models is what is causing this bias. 
+ALl three models show a strong low concentration bias in the Weddell Sea in February, while the models based in Concentration Tendency Surfaces models also exhibit high concentraiton bias in the Ross Sea. 
+It is likely that the lack of dynamical processes in these models is what is causing this bias. 
 If that is the case, then the fact that the coupled model share the same feature suggest a problem in the dynamics of the model. 
 
 ```{r}
@@ -1095,10 +1110,10 @@ area |>
     area := area - mean(area[year(time) %between% c(1990, 2010)]),
     by = .(month(time), model)
   ] |>
-  # _[model != "obs"] |>
+  # _[model != "daice"] |>
   set_labels() |>
   ggplot(aes(time, area)) +
-  geom_line(data = \(x) x[model == "obs"][, model := NULL], color = "gray") +
+  geom_line(data = \(x) x[model == "daice"][, model := NULL], color = "gray") +
   geom_line() +
   # scale_color_models +
   scale_y_continuous(
@@ -1106,11 +1121,11 @@ area |>
     labels = labels_extent
   ) +
   scale_x_date(NULL, breaks = breaks_by("10 years"), date_labels = "%Y") +
-  facet_wrap(~model, ncol = 1) +
+  facet_wrap(~model, ncol = 1, labeller = labeller(model = labs_models)) +
   tag_facets()
 ```
 
-Despite large local biases, the statistical models simulate sea ice area anomalies remarcable well (@fig-area-anomalies). 
+Despite large local biases, the statistical models simulate sea ice area anomalies remarcable well (@fig-area-anomalies). \todo{more information here}
 
 
 ```{r}
@@ -1126,7 +1141,7 @@ cor_w_obs <- (function(file) {
   memoise::memoise(cache = cachem::cache_disk(here::here("data/temp/cache")))
 
 cors <- sims |>
-  _[model != "obs"] |>
+  _[model != "daice"] |>
   _[, cor_w_obs(file), by = .(model)]
 ```
 
@@ -1156,7 +1171,7 @@ cors |>
   theme(panel.grid = element_blank()) +
   facet_grid(
     month ~ model,
-    labeller = labeller(month = labels_month, variable = labels_models)
+    labeller = labeller(month = labels_month, variable = labs_models)
   ) +
   wide_legend
 ```
@@ -1166,30 +1181,6 @@ cors |>
 In Summer, models have comparable low correlation values, however in Spring, the statistical models show higher correlation that the coupled model in the ice edge, although correlations are near zero in the core of the ice pack. 
 This likely is related to the low variance of sea ice concentrations in that region, where it's almost 100% every September. 
 This can be seen in @fig-sd, that compares interannual standard deviation. 
-
-
-
-```{r}
-#| label: fig-mean-cor
-#| fig-height: 4
-#| fig-width: 5
-
-# gridarea <- cdo_gridarea(CDRv6())[] |>
-#   ReadNetCDF(c("cell_area"))
-
-# cors |>
-#   gridarea[i = _, on = .NATURAL] |>
-#   _[,
-#     .(estimate = weighted.mean(estimate, w = cell_area, na.rm = TRUE)),
-#     by = .(month, model)
-#   ] |>
-#   ggplot(aes(month, estimate)) +
-#   with_args(list(aes(color = model)), list(geom_line(), geom_point())) +
-#   # scale_color_models +
-#   scale_x_month() +
-#   scale_y_continuous("Mean spatial correlation") +
-#   coord_cartesian(clip = "off")
-```
 
 ```{r}
 #| label: fig-sd
@@ -1218,7 +1209,7 @@ sims |>
   lonlat_lines +
   facet_grid(
     month ~ model,
-    labeller = labeller(month = labels_month, variable = labels_models)
+    labeller = labeller(month = labels_month, model = labs_models)
   ) +
   wide_legend
 ```
