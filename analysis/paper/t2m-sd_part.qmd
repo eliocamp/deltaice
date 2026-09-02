@@ -1,0 +1,189 @@
+
+
+
+
+```{r}
+t2m <- ERA5_t2msd() |>
+  ReadNetCDF(c(t2m_sd = "t2m"), subset = list(time = range(daice$time))) |>
+  _[, time := as.Date(time)] |>
+  _[daice, on = .NATURAL] |>
+  _[!is.na(aice)]
+```
+
+```{r}
+label_to_number <- function(x) {
+  levs <- utils::strcapture(
+    r"([\[\(](-?\d+),(-?\d+)[\]\)])",
+    levels(x),
+    perl = TRUE,
+    proto = list(low = integer(), high = integer())
+  )
+
+  number <- (levs$high + levs$low) / 2
+  levels(x) <- number
+
+  x |>
+    as.character() |>
+    as.numeric()
+}
+```
+
+```{r}
+t2m |>
+  copy() |>
+  _[,
+    c("lon", "lat") := proj4::project(
+      list(x, y),
+      sic_projection,
+      inverse = TRUE
+    )
+  ] |>
+  _[,
+    .(t2m_sd = mean(t2m_sd, na.rm = TRUE), n = .N),
+    by = .(t2m = cut_t2m(t2m), lat = cut_width(lat, width = 4, center = -50))
+  ] |>
+  _[n > 50] |>
+  ggplot(aes(t2m, t2m_sd)) +
+  geom_line(aes(color = label_to_number(lat), group = lat)) +
+  scale_colour_viridis_c("Latitude")
+```
+
+```{r}
+minmax <- t2m |>
+  _[t2m %between% c(-21, -19) | t2m %between% c(0, 2)] |>
+  _[, t2m_cat := ifelse(t2m < -5, "cold", "warm")] |>
+  _[, .SD[c(which.max(t2m_sd), which.min(t2m_sd))], by = .(t2m_cat)] |>
+  _[,
+    c("lon", "lat") := proj4::project(
+      list(x, y),
+      sic_projection,
+      inverse = TRUE
+    )
+  ]
+
+minmax[]
+```
+
+
+```{r}
+minmax |>
+  ggplot(aes(x, y)) +
+  geom_antarctica_fill +
+  geom_point() +
+  ggrepel::geom_text_repel(aes(label = time)) +
+
+  scales_antarctica
+```
+
+
+```{r}
+top_and_bottom <- function(x, N) {
+  n <- nrow(x)
+  x[c(1:N, (n - N + 1):n)]
+}
+
+
+events <- t2m |>
+  _[t2m %between% c(-21, -19) | t2m %between% c(0, 2)] |>
+  _[, t2m_cat := ifelse(t2m < -5, "cold", "warm")] |>
+  _[, top_and_bottom(.SD[order(t2m_sd)], 1), by = .(t2m_cat, time)] |>
+  _[, top_and_bottom(.SD[order(t2m_sd)], 10), by = .(t2m_cat)] |>
+  _[, sd_cat := ifelse(1:.N <= 10, "low", "high"), by = t2m_cat] |>
+  _[, time := as.Date(time)] |>
+  _[, event_id := 1:.N] |>
+  _[,
+    c("lon_event", "lat_event") := proj4::project(
+      list(x, y),
+      sic_projection,
+      inverse = TRUE
+    )
+  ]
+```
+
+```{r}
+t2m[, t2m_a := t2m - mean(t2m, na.rm = TRUE), by = .(x, y, month(time))]
+```
+
+```{r}
+events[
+  t2m_cat == "warm" & sd_cat == "high",
+  .(time, t2m_cat, sd_cat, event_id, lon_event)
+] |>
+  _[event_id == event_id[1]] |>
+  t2m[i = _, on = "time"] |>
+  _[,
+    c("lon", "lat") := proj4::project(
+      list(x, y),
+      sic_projection,
+      inverse = TRUE
+    )
+  ] |>
+  _[, lon := (lon - lon_event) %% 360] |>
+  ggplot(aes(lon, lat)) +
+  geom_raster(aes(fill = t2m_a)) +
+  facet_wrap(~event_id)
+```
+
+```{r}
+ranges <- list(
+  as.character(events$time),
+  as.character(events$time + lubridate::days_in_month(events$time) - 1)
+) |>
+  transpose()
+
+
+events <- gadiera5::era5() |>
+  _[aggregation %like% "monthly"] |>
+  _[variable == "z"] |>
+  gadiera5::set_date_range(ranges) |>
+  gadiera5::get_files() |>
+  _[, .(variable, file = unlist(files), event_id = as.integer(range_id))] |>
+  _[events, on = "event_id"] |>
+  _[,
+    c("lon_event", "lat_event") := proj4::project(
+      list(x, y),
+      sic_projection,
+      inverse = TRUE
+    )
+  ] |>
+  _[,
+    file := cdo_sellonlatbox(file, lon_event - 50, lon_event + 50, -90, -40)[],
+    by = .(event_id, variable)
+  ]
+```
+
+
+```{r}
+events_composite <- events |>
+  _[
+    t2m_cat == "cold",
+    ReadNetCDF(file, variable),
+    by = .(t2m_cat, sd_cat, event_id, lon_event)
+  ] |>
+  normalise_names() |>
+  _[, lon := x - floor(lon_event)] |>
+  _[, .(z = mean(z)), by = .(lon, lat = y, t2m_cat, sd_cat)]
+```
+
+```{r}
+events_composite |>
+  copy() |>
+  _[, z := z - mean(z), by = lat] |>
+  ggplot(aes(lon, lat)) +
+  geom_raster(aes(fill = z)) +
+  facet_grid(t2m_cat ~ sd_cat)
+```
+
+
+```{r}
+events |>
+  _[
+    t2m_cat == "cold",
+    ReadNetCDF(file, variable),
+    by = .(t2m_cat, sd_cat, event_id, lon_event)
+  ] |>
+  normalise_names() |>
+  ggplot(aes(x, y)) +
+  geom_raster(aes(fill = z)) +
+  facet_wrap(~event_id)
+```

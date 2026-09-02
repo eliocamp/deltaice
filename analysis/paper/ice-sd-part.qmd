@@ -1,0 +1,72 @@
+
+```{r}
+
+ice_mask <- CDRv6() |>
+  cdo_gtc(0.15) |>
+  cdo_ymonmean() |>
+  cdo_expr("'mask=aice > 0.05 ? 0 : missval(aice)'") |>
+  _[]
+
+stl_df <- function(x, years, w = 10) {
+  year1 <- years[1]
+  stl_decomp <- ts(x, start = c(year1, 1), frequency = 12) |>
+    stl(s.window = w, t.window = 12 * w)
+  list(
+    anom = as.numeric(stl_decomp$time.series[, 3]),
+    trend = as.numeric(stl_decomp$time.series[, 2]),
+    seasonal = as.numeric(stl_decomp$time.series[, 1])
+  )
+}
+```
+
+```{r}
+sst_t2m <- list(sst = ERA5_sst(), t2m = ERA5_t2m()) |>
+  purrr::imap(\(file, name) {
+    file |>
+      cdo_ymonadd(ice_mask) |>
+      cdo_fldmean() |>
+      _[] |>
+      ReadNetCDF(c(value = name)) |>
+      _[, variable := name] |>
+      _[]
+  }) |>
+  rbindlist() |>
+  _[,
+    c("anom", "trend", "seasonal") := stl_df(value, year(time), w = 10),
+    by = variable
+  ]
+```
+
+
+```{r}
+sst_t2m |>
+  copy() |>
+  _[, seasonal := scale(seasonal), by = variable] |>
+  ggplot(aes(time, seasonal)) +
+  geom_line(aes(color = variable))
+```
+
+```{r}
+sst_t2m |>
+  copy() |>
+  _[, anom := scale(anom + trend), by = variable] |>
+  ggplot(aes(time, anom)) +
+  geom_line(aes(color = variable))
+```
+
+```{r}
+sst_t2m |>
+  copy() |>
+  _[, anom := scale(anom), by = variable] |>
+  ggplot(aes(time, anom)) +
+  geom_line(aes(color = variable))
+```
+
+```{r}
+sst_t2m |>
+  copy() |>
+  _[, sd := frollsd(anom, n = 120), by = variable] |>
+  _[, sd := scale(sd), by = variable] |>
+  ggplot(aes(time, sd)) +
+  geom_line(aes(color = variable))
+```

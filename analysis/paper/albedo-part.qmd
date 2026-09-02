@@ -1,0 +1,107 @@
+
+## Albedo experiment
+
+```{r}
+#| label: albedo_experiment
+albedo_experiment <- function(experiment) {
+  old <- rcdo::cdo_cache_set(here::here("data/temp/cache"))
+  on.exit(rcdo::cdo_cache_set(old))
+  box::use(R / functions[dir_part])
+
+  temp_era_full <- here::here("data/derived/era5_temp_antarctic_mon.nc")
+
+  files <- "/g/data/rt52/era5/single-levels/monthly-averaged/2t/*/*.nc" |>
+    Sys.glob()
+
+  years <- as.numeric(dir_part(files, 1))
+
+  files <- files[years > 1979]
+  grid <- CDR_grid()
+
+  files |>
+    lapply(
+      \(x) {
+        x |>
+          rcdo::cdo_remapbil(grid = grid)
+      }
+    ) |>
+    rcdo::cdo_mergetime() |>
+    rcdo::cdo_setday(1) |>
+    rcdo::cdo_settime("00:00:00") |>
+    rcdo::cdo_execute(
+      output = temp_era_full,
+      options = "-O -L -b f32",
+      cache = TRUE
+    )
+  return(temp_era_full)
+}
+```
+
+
+```{r}
+#| label: grid_albedo
+grid_albedo <- function(experiment) {
+  air_var <- "fld_s03i236"
+
+  sel_air <- function(x) {
+    x |>
+      cdo_selname(air_var) |>
+      cdo_remapbil("r360x180") |>
+      cdo_sellonlatbox(0, 360, -90, -50)
+  }
+
+  exp_air <- glue::glue(
+    "/scratch/lo70/sd3017/access-esm/atmos_component/{experiment}/archive/output*/atmosphere/netCDF/aiihca.pa*.nc"
+  ) |>
+    Sys.glob() |>
+    lapply(sel_air) |>
+    cdo_mergetime() |>
+    cdo_chname(air_var, "tas") |>
+    cdo_setday(1) |>
+    cdo_settime("00:00:00") |>
+    cdo_execute()
+
+  sel_ice <- function(x) {
+    x |>
+      cdo_selname("aice") |>
+      cdo_remapbil("r360x180") |>
+      cdo_sellonlatbox(0, 360, -90, -50)
+  }
+
+  exp_ice <- glue::glue(
+    "/scratch/lo70/sd3017/access-esm/atmos_component/{experiment}/archive/output*/ice/HISTORY/*.nc"
+  ) |>
+    Sys.glob() |>
+    lapply(sel_ice) |>
+    cdo_mergetime() |>
+    cdo_setday(1) |>
+    cdo_settime("00:00:00") |>
+    cdo_chname("aice", "siconc") |>
+    cdo_mulc(100) |>
+    cdo_execute()
+
+  grid_ice(exp_ice, exp_air)[, experiment := experiment]
+}
+```
+
+
+
+```{r}
+#| label: grid_experiments
+grid_experiments <- c("all_albedo_0", "all_albedo_0.2", "all_albedo_0.99") |>
+  lapply(grid_albedo) |>
+  rbindlist()
+```
+
+
+```{r}
+#| fig-width: 16
+#| fig-height: 7
+#| label: fig-grid_experiments
+#| fig-cap: Concentration Tendency Surface of ACCESS-ESM1.5 runs with modified albedo parameters. 
+#| include: false
+plot_daice_monthly +
+  copy(grid_experiments)[, value := daice] +
+  facet_wrap(~experiment)
+```
+
