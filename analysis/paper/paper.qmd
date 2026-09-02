@@ -115,7 +115,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   cache = TRUE,
-  cache.extra = 43
+  cache.extra = 40
 )
 
 library(metR)
@@ -125,7 +125,7 @@ library(ggplot2)
 library(rcdo)
 library(tagger)
 library(patchwork)
-future::plan("multicore", workers = parallelly::availableCores(omit = 1))
+future::plan("multisession", workers = parallelly::availableCores(omit = 1))
 
 cdo_cache_set(here::here("data/temp/cache"))
 cdo_options_set("-L")
@@ -150,7 +150,6 @@ topo <- cdo_topo(grid = "r720x360") |>
 
 proj <- "+proj=stere +lat_0=-90 +lat_ts=-70 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=6378273 +b=6356889.449 +units=m +no_defs"
 ```
-
 
 ```{r}
 #| label: set_labels
@@ -311,6 +310,9 @@ Maximum melt is at around 75% sea ice concentrations, when there is enough ice t
 # ] |>
 #   _[, lon := ConvertLongitude(lon)]
 
+cut_ice <- \(x) cut_mid(x, 0.01, 0.03)
+cut_t2m <- \(x) cut_mid(x, 0.2, 0)
+
 grid_monthly <- daice |>
   _[,
     .(
@@ -320,12 +322,23 @@ grid_monthly <- daice |>
       daice = mean(daice, na.rm = TRUE)
     ),
     by = .(
-      t2m = cut_mid(t2m, 0.2, 0),
-      aice = cut_mid(aice, 0.01, 0.11)
+      t2m = cut_t2m(t2m),
+      aice = cut_ice(aice)
     )
   ] |>
   _[!is.na(aice)]
+
+grid_monthly <- rbind(
+  grid_monthly,
+  grid_monthly[aice == min(aice)] |>
+    _[, aice := aice - 0.01 * 2],
+  grid_monthly[aice == max(aice)] |>
+    _[, aice := aice + 0.01 * 2]
+) |>
+  _[order(aice)]
 ```
+
+
 
 ```{r}
 #| label: model_monthly_training
@@ -359,8 +372,9 @@ data_range <- grid_monthly[n > 100] |>
 setkey(data_range, aice)
 
 
+min_ice <- min(grid_monthly$aice)
 t2m_seq <- seq(-70, 30, by = 0.1)
-aice_seq <- seq(0, 1, by = 0.01)
+aice_seq <- seq(min_ice, max(grid_monthly$aice), by = 0.01)
 
 smooth_grid <- CJ(t2m = t2m_seq, aice = aice_seq)
 
@@ -385,11 +399,14 @@ clamp_daice <- function(daice, aice) {
 
 smooth_grid[, t2m_clamped := pmax(t2m_min, pmin(t2m, t2m_max))]
 
+smooth_grid[,
+  aice_clamped := pmax(min(data_range$aice), pmin(aice, max(data_range$aice)))
+]
 
 smooth_grid[,
   daice := predict(
     model_monthly,
-    newdata = data.frame(aice = aice, t2m = t2m_clamped)
+    newdata = data.frame(aice = aice_clamped, t2m = t2m_clamped)
   )
 ] |>
   _[t2m > 0 & daice > 0, daice := -daice]
@@ -400,6 +417,7 @@ smooth_grid[, daice := clamp_daice(daice, aice)]
 
 b <- seq(-1, 1, by = 0.1)
 ```
+
 
 ```{r}
 #| label: tf_model
@@ -589,8 +607,9 @@ labs_models <- c(
   daice_obs = "Observed CTS",
   daice_tf = "Variable T_f",
   daice_gamma = "Model with extra flux",
+  daice_stochastic = "Submonthly fluctuations",
   daice_smooth = "Smooth observations",
-  s2 = "ACCESS_S2"
+  s2 = "ACCESS-S2"
 )
 
 smooth_grid_coarse <- smooth_grid[, .(
@@ -626,10 +645,66 @@ models <- grid_monthly |>
   melt(
     id.vars = c("aice", "t2m")
   ) |>
-  rbind(smooth_grid_coarse) |>
-  _[, variable := factor(variable, levels = names(labs_models))]
+  rbind(smooth_grid_coarse)
 ```
 
+```{r}
+#| label: t2m_grid
+t2m_grid <- ERA5_t2msd() |>
+  ReadNetCDF(c(t2m_sd = "t2m"), subset = list(time = range(daice$time))) |>
+  _[, time := as.Date(time)] |>
+  _[daice, on = .NATURAL] |>
+  _[!is.na(aice)] |>
+  _[,
+    .(t2m_sd = mean(t2m_sd, na.rm = TRUE), n = .N),
+    by = .(aice = cut_ice(aice), t2m = cut_t2m(t2m))
+  ]
+```
+
+```{r}
+#| label: stochastic
+
+dc <- function(t2m, aice, t2m_random = 0) {
+  dc <- predict(
+    mod_simple,
+    newdata = data.frame(
+      t2m = t2m + rnorm(length(t2m), sd = t2m_random),
+      aice = aice
+    )
+  )
+
+  dc
+}
+
+stochastic <- function(fun, N = 1000) {
+  force(fun)
+  force(N)
+  function(...) {
+    val <- sapply(1:N, \(i) fun(...))
+
+    list(mean = rowMeans(val), sd = apply(val, 1, sd))
+  }
+}
+
+stochastic_samples <- 5000
+stochastic_grid <- models |>
+  copy() |>
+  _[variable == "daice_simple"] |>
+  t2m_grid[i = _, on = .NATURAL] |>
+  _[,
+    c("value", "sd") := stochastic(dc, stochastic_samples)(
+      t2m,
+      aice,
+      t2m_random = t2m_sd
+    )
+  ]
+
+models <- stochastic_grid |>
+  copy() |>
+  _[, .(value = value, variable = "daice_stochastic", aice, t2m)] |>
+  rbind(models) |>
+  _[, variable := factor(variable, levels = names(labs_models))]
+```
 
 ```{r}
 #| label: fig-aice-lines
@@ -687,7 +762,7 @@ Observations are computed by averaging gridcells with temperatures of `r celsius
 The overall observed curve fits notably well with the simple theory in the melt regime. 
 Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea ice insulation. 
 At 100% sea ice concentrations, melt values are not exactly zero. 
-This in likely partly due to the binning -- which means that these values are actually the average of values between 95% and 100% -- but also likely a real effect that includes many processes that the model doesn't take into account, such as transport, deformation, melting from below and heat exchange through the ice itself. 
+This in likely partly due to the binning -- which means that these values are actually the average of values between 95% and 100% -- but also likely a real effect that includes many processes that the model doesn't take into account, such as transp``ort, deformation, melting from below and heat exchange through the ice itself. 
 
 In the growth regime, observations don't follow the simple model as well.
 Although, they show low growth at high concentrations and high growth at low concentrations, they deviate from the simple model in two significant ways. 
@@ -832,7 +907,7 @@ $$
 \frac{dC}{dt} = \left.\frac{dC}{dt}\right|_a  + \left.\frac{dC}{dt}\right|_o 
 $$
 
-Where $\left.\frac{dC}{dt}\right|_a$ is the air temperature-induced changed computed as before and $\left.\frac{dC}{dt}\right|_o $ is the bottom ocean 
+Where $\left.\frac{dC}{dt}\right|_a$ is the air temperature-induced changed computed as before and $\left.\frac{dC}{dt}\right|_o$ is the bottom ocean 
 
 $$
 \left.\frac{dC}{dt}\right|_o = \beta_m F_o C 
@@ -843,12 +918,17 @@ The new parameter $\gamma$ modulates the strength of the flux.
 
 The results for this model with parameters fitted to observations are shown in @fig-aice-lines d and @fig-daice-monthly d.
 This model produces a $T_f$ dependency comparable with observations, although the exact shape is clearly not correct; it is too flat at low sea ice concentrations and too steep at high sea ice concentrations. 
-Nevertheless, it suggests that ocean processes might be responsible for this phenomenon. 
 
-An alternative model imposing a damping forcing that relaxes sea ice concentrations towards a temperature-dependent value were tried. 
+Finally, the dependence of $T_f$ on sea ice concentations might be explained by sub-monthly temperature variations. 
+For @fig-aice-lines e and @fig-daice-monthly e, I ran `r stochastic_samples` simulaitons of @eq-model in which I added a random normal perturbation to 2-meter temperature with mean zero and standard deviation taken from observations of monthly standard deviation of air temperature as a function of monthly mean temperature and monthly mean sea ice concentrations (@fig-t2m_sd).
+Random submonthly temperature fluctuations approximate $T_f$ well but it subestimates sea ice growth at low sea ice concentrations. 
+Note that the standard deviation includes daily fluctuations as well as the daily trend in temperature from the seasonal cycle. 
+It is not clear why intramonthly 2-m temperature variability increases so much at low temperatures. 
+Note that there is little dependence of variabilty on sea ice concentration, suggesting that bufering from the ocean and insulation by sea ice can only play a minor role. 
+
+An alternative model imposing a damping forcing that relaxes sea ice concentrations towards a temperature-dependent value was tried. 
 This formulation would attempt to take into account that gridpoints with either particularly high or low sea ice concentration values compared with their surroundings will tend to either export ice away or gain ice from their neighbours. 
 However, the estimated damping strength from observations was minimal and could not explain the observed shaped of the ice-temperature surface and was not consistent with the observed minimal melt at 100% sea ice concentraions. 
-
 
 ```{r}
 #| label: grid_monthly_rmse
@@ -900,13 +980,14 @@ grid_monthly |>
   as.discretised_scale(scale_fill_viridis_c)("SD")
 ```
 
-\todo[]{I feel this part needs to be moved before, like a justification to show that the Concentration Tendency Surface actually exists}The average error of the predicting $dC/dt$ from air temperature and sea ice concentration, estimated as the standard deviation of observations conditioned by the observed Concentration Tendency Surface (@fig-daice-monthly panel a) excluding air temperature greater than 0°C and no ice is present, is `r scales::number(sqrt(var_cond$var_cond), accuracy = 0.001)`. 
+The average error of the predicting $dC/dt$ from air temperature and sea ice concentration, estimated as the standard deviation of observations conditioned by the observed Concentration Tendency Surface (@fig-daice-monthly panel a) excluding air temperature greater than 0°C and no ice is present, is `r scales::number(sqrt(var_cond$var_cond), accuracy = 0.001)`. 
 For comparison, the standard deviation of sea ice change is `r scales::number(sqrt(var_cond$var), accuracy = 0.001)`.
 The Concentration Tendency Surface therefore explains `r scales::percent(var_cond[, 1- var_cond/var])` of the variance in sea ice concentration change. 
 @fig-grid-sd shows the standard deviation of $dC/dt$ as a function of temperature and sea ice concentration and illustrates that this mean error is in no way homogeneous. 
 Both for low sea ice concentrations at higher temperatures, and for high sea ice concentration at low temperature the error is lower than 0.15.
 The error increases to between 0.2 and 0.35 at temperatures between -5°C and -3°C and sea ice concentration below 0.75. 
 This suggests that ice dynamics and ocean processes are particularly important at these intermediate tempeartures. 
+\todo[]{I feel this part needs to be moved before, like a justification to show that the Concentration Tendency Surface actually exists}
 
 ## Using the Concentration Tendency Surface to predict sea ice
 
@@ -942,7 +1023,7 @@ forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
 
 Since the Concentration Tendency Surface defines a prognostic equation of sea ice concentration, we can integrate it in time using temperature fields as forcing. 
 This can help in understanding what aspects of sea ice variabilty can be explained by the Concentration Tendency Surface. 
-By integrating both the Concentration Tendency Surface from @eq-model and the observed one (@fig-fig-daice-monthly panels b and a respectively) I can further analyise the impact of modelling the dependency of $T_f$ on sea ice concentration. 
+By integrating both the Concentration Tendency Surface from @eq-model and the observed one (@fig-daice-monthly panels b and a respectively) I can further analyise the impact of modelling the dependency of $T_f$ on sea ice concentration. 
 The observed Concentration Tendency Surface is not defined for unobserved values of sea ice concentation and temperatures and it is highly uncertain in region of that space with sparce observations.
 To address both issues, I smooth the surface with 2D loess smooth utilising only parts of the grid with more than 100 observations and extrapolate the extreme values in regions with no data. 
 I use ERA5 2-m temperature as forcing and integrate the models using January `r year(int_range[1])` observations as initial conditions and run it until December `r year(int_range[2])`. 
@@ -957,7 +1038,7 @@ d_ice <- function(grid) {
 
   function(state, time, forcing) {
     t2m <- forcing(time)
-    d_ice <- lookup(state, t2m, grid)
+    d_ice <- lookup(state, t2m, grid, aice_min = min_ice, aice_step = 0.01)
     d_ice
   }
 }
@@ -1106,7 +1187,7 @@ lonlat_lines <- with_args(
 #| label: fig-bias
 #| fig-cap: Sea ice concentration bias compared with observations for February and September. 
 #| fig-width: 5
-#| fig-height: 4
+#| fig-height: 8
 sims |>
   _[, .(file = cdo_ymonmean(file)[]), by = model] |>
   _[, base := file[model == "daice"]] |>
@@ -1127,7 +1208,7 @@ sims |>
   lonlat_lines +
   scales_antarctica +
   facet_grid(
-    month ~ model,
+    model ~ month,
     labeller = labeller(month = labels_month, model = labs_models)
   ) +
   wide_legend +
@@ -1190,8 +1271,9 @@ cors <- sims |>
 ```{r}
 #| label: fig-spatial-cor
 #| fig-cap: Correlation between simulated and observed monthly mean sea ice concentration for the different models for February and September.
-#| fig-height: 4
 #| fig-width: 5
+#| fig-height: 8
+
 cors |>
   _[month %in% c(2, 9)] |>
   _[is.na(estimate), estimate := 0] |>
@@ -1212,8 +1294,8 @@ cors |>
   lonlat_lines +
   theme(panel.grid = element_blank()) +
   facet_grid(
-    month ~ model,
-    labeller = labeller(month = labels_month, variable = labs_models)
+    model ~ month,
+    labeller = labeller(month = labels_month, model = labs_models)
   ) +
   wide_legend
 ```
@@ -1227,8 +1309,9 @@ This can be seen in @fig-sd, that compares interannual standard deviation.
 ```{r}
 #| label: fig-sd
 #| fig-cap: Interannual monthly standard deviation of monthly mean sea ice concentration anomalies for February and September and for each model and observations. 
-#| fig-height: 4
-#| fig-width: 5 
+#| fig-width: 5
+#| fig-height: 9
+
 sims |>
   _[,
     cdo_ymonstd(file)[] |>
@@ -1250,20 +1333,18 @@ sims |>
   scales_antarctica +
   lonlat_lines +
   facet_grid(
-    month ~ model,
+    model ~ month,
     labeller = labeller(month = labels_month, model = labs_models)
   ) +
   wide_legend
 ```
 
-While the statistical model does well in terms of correlation and Pan-Antarctic sea ice area, one important limitation is that the variabilyt of the simulated sea ice concentrations is much lower than either observations or the coupled model simulation (@fig-sd). 
-Lower variabilty is not unexpected since the 
-
-
+While the statistical model does well in terms of correlation and Pan-Antarctic sea ice area, one important limitation is that the variability of the simulated sea ice concentrations is much lower than either observations or the coupled model simulation (@fig-sd). 
+Lower variabilty is not unexpected since the Concentration Tendency Surface doesn't include many sources of variability such as advection, divergence, thickness redistribution and ocean processes. 
 
 ## CMIP6
 
-The realtionship implied in @fig-daice-monthly is assumed to be an emergent property of thermodynamic processes and interactions between sea ice and the atmosphere. 
+The Concentation Tendency Surface shown in @fig-daice-monthly a is assumed to be an emergent property of thermodynamic processes and interactions between sea ice and the atmosphere. 
 To understand to what extent this relationship is stable and predictive of sea ice behaviour, we analyse it using historical simulations and SSP585 projections of CMIP6 models. 
 
 
@@ -1303,8 +1384,6 @@ cmip_grid_split <- rbind(
     ]
 )
 ```
-
-
 
 ```{r}
 #| label: model_order
@@ -1373,7 +1452,7 @@ The only models with a freeze bias (ice growing at higher temperatures than in o
 #| label: fig-rmse-bias
 #| fig-cap: RMSE of models. 
 #| fig-width: 5
-#| fig-height: 5
+#| fig-height: 4
 
 cmip_bias <- cmip_grid |>
   _[grid_monthly, on = c("t2m", "aice")] |>
@@ -1509,12 +1588,50 @@ Even models with a freeze bias, like CESM2_WACCM or ACCESS-CM2, exhibit a negati
 There is a trend for lower negative sea ice area bias in those models with freeze bias, but that relationship is weaker than the RMSE one. 
 
 
-
 ## Conclusions
 
 
 
-## Supplementary figures
+
+## Acknowledgments
+
+Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
+
+Caroline Holmes for idea of stochastic addition.
+
+## Open research
+
+Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
+
+## References {.unnumbered}
+
+
+\clearpage
+
+## Supplementary figures {.appendix}
+
+\appendix
+
+
+```{r}
+#| label: fig-t2m_sd
+#| fig-cap: Mean monthly standard deviation of daily temperature as a function of monthly mean temperature and monthly mean sea ice concentation.
+#| fig-height: 4
+#| fig-width: 4
+t2m_grid |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = t2m_sd, fill = ..level..)) +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 1),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous("Monthly mean sea ice concentration", expand = c(0, 0)) +
+  as.discretised_scale(scale_fill_viridis_c)(
+    "Mean monthly standard deviation 2-m temperature (°C)"
+  ) +
+  wide_legend
+```
 
 
 
@@ -1651,14 +1768,3 @@ cmip_files[variable == "siconc"] |>
   scale_y_continuous("Sea ice area", labels = labels_extent) +
   scale_x_month()
 ```
-
-
-## Acknowledgments
-
-Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
-
-## Open research
-
-Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
-
-## References {.unnumbered}
