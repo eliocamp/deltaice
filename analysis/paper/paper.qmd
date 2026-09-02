@@ -59,10 +59,10 @@ A Plain Language Summary (PLS) can be an incredibly effective science communicat
 
 ## Introduction
 
-The abrupt drop in Antarctic sea ice extent around 2015--2016 [@purich2023] raised the question of whether sea ice has experienced a critical transition [@hobbs2024], which has implications to the potential irreversibility of the decrease. 
-However, due to the scarcity of the obsevational record, statistical evidence for a critical transition is scarce.
-Firm theoretical jsutification is also hampered by our lack of understanding of the various feedbacks at play. 
-Furthermore, state of the art climate models struggle to simluate the observed Antarctic sea ice mean state and variability [@REF].
+The abrupt drop in Antarctic sea ice extent around 2015--2016 [@purich2023] raised the question of whether sea ice has experienced a critical transition [@hobbs2024], which has implications to the potential irreversibility of the decrease and the potential or more extremes [@raphael2025].
+However, due to the short length of the obsevational record, statistical evidence for a critical transition is scarce.
+Firm theoretical justification is also hampered by our lack of understanding of the various feedbacks at play. 
+Furthermore, state of the art climate models struggle to simulate the observed Antarctic sea ice mean state and variability [@roach2020].
 
 Models' inability to correctly simulate Antarctic sea ice could be due either to issues of the sea ice model itself or come from inadequate representation of the external atmospheric or oceanic forcing. 
 There is some evidence that incorrect representation of atmospheric trends play a role [@purich2016].
@@ -90,18 +90,15 @@ Dynamically, sea ice is in constant motion, so advection and divergence of sea i
 Ice processes such as sea ice floes crashing over each other and deforming will also change sea ice concentrations within a cell; reducing area but increasing thickness.
 These are improtant locally but do not affect the total sea ice area except from indirect feedbacks. 
 Thermodynamically, horizontal and vertial heat flux within the ocean will affect sea ice evolution. 
-These processes do affect total area and are demeed to be important especially in the recent sea ice retreat [@purich; @hobs]. 
+These processes do affect total area and are demeed to be important especially in the recent sea ice retreat [@purich2023]. 
 In this work they will not be studied in order to try to isolate specifically the atmospheric contribution. 
 \todo[]{This last section is important (especially to hedge against (justified) complains of missing processes, but I'm not sure where to put it)}
-
 
 Here I demonstrate this state-dependence by defining a Concentration Tendency Surface as the mean change of sea ice concentration within a gridcell as a joint function of 2-metre air temperature and sea ice concentration. 
 I derive a simple analytical expression of this Surface from first principles and then estimate it from obsevations. 
 Identifying regions of discrepancy allows me to gain intuition of the effect of the missing processes in this simple model. 
 I explore the validity of the Concentration Tendency Surface by integrating it forward using observed 2-metre temperature forcing. 
 Finally, I evaluate the Concentration Tendency Surface of CMIP6 models to investigate if errors in this thermodynamic relationship are indicative of errors in the simualted sea ice. 
-
-
 
 ```{r include=FALSE}
 #| label: setup
@@ -179,12 +176,53 @@ daice <- daice_read()
 ```
 
 
+
 ## Data and Methods
 
-* CDR data source
+\todo{Flesh out this whole section}
+
+I use Antarctic sea ice concentration from NOAA/NSIDC's Climate Data Record V4 [CDR; @meier2014]. 
+This dataset takes the maximum value of the NASA Team [@cavalieri1984] and NASA Bootstrap [@comiso2023] sea ice concentration products to reduce their low concentration bias [@meier2014; @meier2021].
+Both source algorithms use data from the Scanning Multichannel Microwave Radiometer (SMMR) on the Nimbus-7 satellite and from the Special Sensor Microwave/Imager (SSM/I) sensors on the Defense Meteorological Satellite Program's (DMSP) -F8, -F11, and -F13 satellites.
+The data have a spatial resolution of 25 by 25 km on a stereographic projection and daily from November 1978 onwards.
+Monthly values are obtained by averaging the daily record and the analysis is restricted to the preiod 1981--2023 to avoid the early period that used interpolated data every other day. 
+I compute monthly sea ice tendency as the difference between sea ice concentration at one month and the next. 
+
+I use monthly mean 2-metre air temperature and Sea Surface temperature (SST) from ERA5 [@hersbach2020] for the same period. 
+Both variables are bilinearly interpolated to the CDR grid prior to analysis. 
+Besides monthly mean, I also compute the monthly standard deviation of 2-metre air temperature from deaily mean values. 
+
+```{r}
+#| label: spacing
+ice_spacing <- 0.01 * 2
+t2m_spacing <- 0.2 * 2
+cut_ice <- \(x) cut_mid(x, ice_grid / 2, 0.03)
+cut_t2m <- \(x) cut_mid(x, t2m_spacing / 2, 0)
+```
+
+To estimate the empirical Concentration Tendency Surface (CTS), I group all gridcells an all months according to their 2-metre air temperature and sea ice concentration and compute the average sea ice tendency. 
+Temperature is binned at `r t2m_spacing`°C intervals and sea ice concentration at `r ice_spacing`% intervals.
+For numerical integration, regions of the temperature-sea ice concentration space with fewer than 50 observations are imputed using the nearest values with more than 50 observations after applying a 2D locally-weighted regression (LOESS). 
+Theoretical CTS are estimated by fitting their free parameters to observations by nonlinear squares [@bates1988] using the minpack.lm R package [@R-minpack.lm]. 
+
+The CTS-based prognostic models are integrated forward in time using a fourth-order Runge--Kutta scheme forced by monthly mean 2-metre temperature from ERA5. 
+Integrations are initialised from observed January 1983 sea ice concentrations and run to December 2023.
+
+As comparison, I use ensemble mean 1 month lead time sea ice concentration hindcasts from the ACCESS-S2 coupled seasonal prediction system [@wedd2022] of the Australian Bureau of Meteorology.
+
+```{r}
+#| label: cmip_files
+cmip_files <- cmip6()
+```
 
 
-* ACCESS-S2 data source
+
+Finally, I compute CTS of historical CMIP6 simulations [@eyring2016] (1850--2014) and the SSP5-8.5 scenario [@oneill2016]. 
+Models with available monthly sea ice concentration and monthly near-surface temperature available for both experiments are used. 
+All models and variables are bilinearly interpolated to a 1° grid and restricted to the Southern Ocean south of 50°S.
+Only the first ensemble memebr (r1i1p1f1) is used.
+The 17 models analysed are 
+
 
 
 ## Results
@@ -309,9 +347,6 @@ Maximum melt is at around 75% sea ice concentrations, when there is enough ice t
 #   )
 # ] |>
 #   _[, lon := ConvertLongitude(lon)]
-
-cut_ice <- \(x) cut_mid(x, 0.01, 0.03)
-cut_t2m <- \(x) cut_mid(x, 0.2, 0)
 
 grid_monthly <- daice |>
   _[,
@@ -1348,11 +1383,6 @@ The Concentation Tendency Surface shown in @fig-daice-monthly a is assumed to be
 To understand to what extent this relationship is stable and predictive of sea ice behaviour, we analyse it using historical simulations and SSP585 projections of CMIP6 models. 
 
 
-```{r}
-#| label: cmip_files
-cmip_files <- cmip6()
-```
-
  
 ```{r}
 #| label: cmip_grid
@@ -1595,7 +1625,7 @@ There is a trend for lower negative sea ice area bias in those models with freez
 
 ## Acknowledgments
 
-Phasellus interdum tincidunt ex, a euismod massa pulvinar at. Ut fringilla ut nisi nec volutpat. Morbi imperdiet congue tincidunt. Vivamus eget rutrum purus. Etiam et pretium justo. Donec et egestas sem. Donec molestie ex sit amet viverra egestas. Nullam justo nulla, fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
+We acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6. We thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
 
 Caroline Holmes for idea of stochastic addition.
 
