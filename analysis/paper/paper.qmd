@@ -196,8 +196,6 @@ Besides monthly mean, I also compute the monthly standard deviation of 2-metre a
 #| label: spacing
 ice_spacing <- 0.01 * 2
 t2m_spacing <- 0.2 * 2
-cut_ice <- \(x) cut_mid(x, ice_grid / 2, 0.03)
-cut_t2m <- \(x) cut_mid(x, t2m_spacing / 2, 0)
 ```
 
 To estimate the empirical Concentration Tendency Surface (CTS), I group all gridcells an all months according to their 2-metre air temperature and sea ice concentration and compute the average sea ice tendency. 
@@ -215,15 +213,11 @@ As comparison, I use ensemble mean 1 month lead time sea ice concentration hindc
 cmip_files <- cmip6()
 ```
 
-
-
 Finally, I compute CTS of historical CMIP6 simulations [@eyring2016] (1850--2014) and the SSP5-8.5 scenario [@oneill2016]. 
 Models with available monthly sea ice concentration and monthly near-surface temperature available for both experiments are used. 
 All models and variables are bilinearly interpolated to a 1° grid and restricted to the Southern Ocean south of 50°S.
 Only the first ensemble memebr (r1i1p1f1) is used.
-The 17 models analysed are 
-
-
+The 17 models analysed are `r cmip_files$model |> unique() |> sort() |> knitr::combine_words()`.
 
 ## Results
 
@@ -347,7 +341,8 @@ Maximum melt is at around 75% sea ice concentrations, when there is enough ice t
 #   )
 # ] |>
 #   _[, lon := ConvertLongitude(lon)]
-
+cut_ice <- \(x) cut_mid(x, ice_spacing / 2, 0.03)
+cut_t2m <- \(x) cut_mid(x, t2m_spacing / 2, 0)
 grid_monthly <- daice |>
   _[,
     .(

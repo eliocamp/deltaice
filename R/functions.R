@@ -60,8 +60,8 @@ average <- function(x) {
 
 normalise_names <- function(data) {
   normal_names <- list(
-    x = c("xgrid", "lon", "longitude", "i"),
-    y = c("ygrid", "lat", "latitude", "j")
+    x = c("xgrid", "lon", "longitude", "i", "ni"),
+    y = c("ygrid", "lat", "latitude", "j", "nj")
   )
 
   for (normal_name in names(normal_names)) {
@@ -335,12 +335,15 @@ salinity <- function(T, P = 100) {
 
 #' Discretise data
 cut_mid <- \(x, width, center) {
-  breaks <- metR::AnchorBreaks(center + width, binwidth = width * 2)(range(
-    x,
-    na.rm = TRUE
-  ))
+  breaks <- c(
+    rev(seq(center - width, min(x, na.rm = TRUE), by = -width * 2)),
+    seq(center + width, max(x, na.rm = TRUE), by = width * 2)
+  )
 
-  santoku::chop(x, breaks, labels = santoku::lbl_midpoints()) |>
+  labels <- breaks + width
+  labels <- labels[-length(labels)]
+
+  cut(x, breaks, labels = labels, include.lowest = TRUE) |>
     as.character() |>
     as.numeric()
 }
@@ -596,24 +599,32 @@ grid_ice <- (function(aice, tas, time = c(NA, NA)) {
 }) |>
   memoise::memoise(cache = dir_cache)
 
-daice_read <- (function() {
+box::use(R / datasets[...])
+
+daice_read <- (function(ice = CDRv6(), t2m = ERA5_t2m(), sst = ERA5_sst()) {
   box::use(R / datasets[...])
   box::use(data.table[...])
 
-  ant_ice <- CDRv6() |>
+  ant_ice <- ice |>
     metR::ReadNetCDF("aice") |>
     normalise_names() |>
     _[, daice := c(diff(aice), NA), by = .(x, y)]
 
-  temp_era_mon <- ERA5_t2m() |>
+  temp_era_mon <- t2m |>
     metR::ReadNetCDF("t2m")
 
-  sst_era_mon <- ERA5_sst() |>
-    metR::ReadNetCDF("sst")
-
+  if (!is.null(sst)) {
+    sst_era_mon <- sst |>
+      metR::ReadNetCDF("sst")
+  }
   daice <- ant_ice |>
-    _[temp_era_mon, on = .NATURAL] |>
-    _[sst_era_mon, on = .NATURAL] |>
+    _[temp_era_mon, on = .NATURAL]
+
+  if (!is.null(sst)) {
+    daice <- daice[sst_era_mon, on = .NATURAL]
+  }
+
+  daice |>
     _[data.table::year(time) %between% c(1983, 2024)] |>
     _[, t2m := t2m - 273.15] |>
     _[, sst := sst - 273.15] |>

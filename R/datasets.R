@@ -189,12 +189,15 @@ ERA5_t2m <- function() {
 }
 
 
-ERA5_t2mdaily <- function() {
+ERA5_t2msd <- function() {
   old <- rcdo::cdo_cache_set(here::here("data/temp/cache"))
   on.exit(rcdo::cdo_cache_set(old))
   box::use(R / functions[dir_part])
   temp_era_full <- here::here("data/derived/era5_temp_antarctic_day.nc")
 
+  if (file.exists(temp_era_full)) {
+    return(temp_era_full)
+  }
   files <- "/g/data/rt52/era5/single-levels/reanalysis/2t/*/*.nc" |>
     Sys.glob()
 
@@ -204,14 +207,17 @@ ERA5_t2mdaily <- function() {
   grid <- CDR_grid()
 
   files |>
-    lapply(
+    furrr::future_map(
       \(x) {
         x |>
           rcdo::cdo_remapbil(grid = grid) |>
-          rcdo::cdo_daymean()
+          rcdo::cdo_daymean() |>
+          rcdo::cdo_monstd1() |>
+          rcdo::cdo_execute()
       }
     ) |>
     rcdo::cdo_mergetime() |>
+    rcdo::cdo_setday(1) |>
     rcdo::cdo_settime("00:00:00") |>
     rcdo::cdo_execute(
       output = temp_era_full,
