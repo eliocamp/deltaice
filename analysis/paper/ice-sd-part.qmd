@@ -1,3 +1,56 @@
+```{r include=FALSE}
+#| label: setup
+knitr::opts_chunk$set(
+  echo = FALSE,
+  fig.align = "center",
+  fig.height = 8,
+  dev = c("png", "svg"),
+  dpi = 200,
+  fig.width = 5,
+  message = FALSE,
+  warning = FALSE,
+  cache = TRUE,
+  cache.extra = 42
+)
+
+library(metR)
+library(lubridate)
+library(data.table)
+library(ggplot2)
+library(rcdo)
+library(tagger)
+library(patchwork)
+future::plan("multisession", workers = parallelly::availableCores(omit = 1))
+
+cdo_cache_set(here::here("data/temp/cache"))
+cdo_options_set("-L")
+
+box::use(R / datasets[...])
+box::use(R / functions[...])
+box::use(R / integration[evolve])
+
+source(here::here("R/ggplot.R"))
+set_theme()
+
+range_tanaka <- c(0.01, 0.2)
+
+
+# Prepend a number to each figure.
+knitr::opts_hooks$set(label = function(options) {
+  this_label <- knitr::opts_current$get("label")
+
+  all_chunks <- knitr::all_labels(startsWith(label, "fig"))
+  fig_num <- which(all_chunks == this_label)
+  n <- formatC(fig_num, width = 3, flag = "0")
+  new_path <- paste0(options$fig.path, n, "_")
+
+  options$fig.path <- new_path
+  return(options)
+})
+```
+
+
+
 
 ```{r}
 

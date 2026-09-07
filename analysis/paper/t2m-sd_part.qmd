@@ -1,10 +1,107 @@
 
 
+```{r}
+library(rcdo)
+library(ggplot2)
+library(metR)
+library(data.table)
+
+cdo_cache_set(here::here("data/temp/cache"))
+box::use(R / datasets[...])
+box::use(R / functions[...])
+```
 
 
 ```{r}
+t2m_file <- "/g/data/fs38/publications/CMIP6/CMIP/CSIRO/ACCESS-ESM1-5/historical/r1i1p1f1/day/tas/gn/latest/*" |>
+  Sys.glob() |>
+  cmip_selantmerge()
+```
+
+```{r}
+t2m_mean <- cdo_monmean(t2m_file)[]
+t2m_sd <- cdo_monstd1(t2m_file)[]
+
+
+anomsd <- cdo_monsub(t2m_file,t2m_mean) |> 
+  cdo_mondiv(t2m_sd) |> 
+  _[]
+
+# Pow needs interactive 
+t2m_skew <- anomsd |> 
+  cdo_mul(anomsd) |> 
+  cdo_mul(anomsd) |> 
+  cdo_monmean() |> 
+  _[]
+
+
+
+
+t2m_sd <- cdo_monsk(t2m_file)[]
+
+
+pct <- cdo_daypctl(t2m_file, cdo_ydaymin(t2m_file), cdo_ydaymax(t2m_file), p = 95)[]
+
+t2m_posdays <- t2m_file |>
+  cdo_gtc(-1.8 + 273.15) |>
+  cdo_monmean() |>
+  _[]
+```
+
+```{r}
+ice <- "/g/data/fs38/publications/CMIP6/CMIP/CSIRO/ACCESS-ESM1-5/historical/r1i1p1f1/SImon/siconc/gn/latest/*" |>
+  Sys.glob() |>
+  cmip_selantmerge()
+```
+
+```{r}
+ice_spacing <- 0.01 * 2
+t2m_spacing <- 0.2 * 2
+cut_ice <- \(x) cut_mid(x, ice_spacing / 2, 0.03)
+cut_t2m <- \(x) cut_mid(x, t2m_spacing / 2, 0)
+```
+
+```{r}
+t2m <- metR::ReadNetCDF(t2m_mean, c(t2m = "tas")) |>
+  _[, t2m_sd := metR::ReadNetCDF(t2m_sd, "tas", out = "vector")[[1]]] |>
+  _[,
+    t2m_posdays := metR::ReadNetCDF(t2m_posdays, "tas", out = "vector")[[1]]
+  ] |>
+    _[,
+    t2m_skew := metR::ReadNetCDF(t2m_skew, "tas", out = "vector")[[1]]
+  ] |>
+  _[, t2m := t2m - 273.15] |>
+  _[, aice := metR::ReadNetCDF(ice, "siconc", out = "vector")[[1]] / 100] |>
+  _[!is.na(aice)]
+```
+
+```{r}
+t2m |>
+  _[,
+    .(t2m_skew = mean(t2m_skew, na.rm = TRUE), n = .N),
+    by = .(t2m = cut_t2m(t2m))
+  ] |> 
+    ggplot(aes(t2m, t2m_skew)) +
+    geom_line()
+ 
+```
+
+```{r}
+t2m |>
+  _[,
+    .(t2m_posdays = mean(t2m_posdays, na.rm = TRUE), n = .N),
+    by = .(t2m = cut_t2m(t2m))
+  ] |> 
+    _[t2m %~% -20]
+    ggplot(aes(t2m, t2m_posdays)) +
+    geom_line()
+ 
+```
+
+```{r}
+daice <- daice_read()
 t2m <- ERA5_t2msd() |>
-  ReadNetCDF(c(t2m_sd = "t2m"), subset = list(time = range(daice$time))) |>
+  ReadNetCDF(c(t2m_sd = "t2m")) |>
   _[, time := as.Date(time)] |>
   _[daice, on = .NATURAL] |>
   _[!is.na(aice)]
@@ -28,16 +125,99 @@ label_to_number <- function(x) {
 }
 ```
 
+
+```{r}
+
+```
+
+```{r}
+mean_tsd <- t2m |>
+  _[,
+    .(t2m_sd = mean(t2m_sd, na.rm = TRUE), n = .N),
+    by = .(t2m = cut_t2m(t2m))
+  ]
+
+
+mean_tsd |>
+  ggplot(aes(t2m, t2m_sd)) +
+  geom_line()
+```
+
+
+```{r}
+t2m |>
+  _[,
+    .(t2m_posdays = mean(t2m_posdays, na.rm = TRUE), n = .N),
+    by = .(t2m = cut_t2m(t2m), aice = cut_ice(aice))
+  ] |>
+  _[n > 50] |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = t2m_posdays)) +
+  scale_fill_viridis_c() +
+  scale_y_continuous(limits = c(-15, NA))
+```
+
+
 ```{r}
 t2m |>
   copy() |>
+  _[, daice := c(diff(aice), NA), by = .(lon, lat)] |>
   _[,
-    c("lon", "lat") := proj4::project(
-      list(x, y),
-      sic_projection,
-      inverse = TRUE
+    .(daice = mean(daice, na.rm = TRUE)),
+    by = .(aice = cut_ice(aice), posdays = cut_mid(t2m_posdays, 0.02, 0.5))
+  ] |>
+  ggplot(aes(aice, posdays)) +
+  geom_contour_fill(aes(z = daice)) +
+  scale_fill_divergent()
+```
+
+```{r}
+mean_sd <- t2m[t2m > 0] |>
+  _[, mean(t2m_sd)]
+```
+
+```{r}
+
+t2m |>
+  _[,
+    .(
+      obs = mean(t2m_posdays, na.rm = TRUE),
+      sd = mean(t2m_sd, na.rm = TRUE),
+      n = .N
+    ),
+    by = .(t2m = cut_t2m(t2m))
+  ] |>
+  _[n > 50] |>
+  _[, normal := pnorm(-1.8, mean = t2m, sd = sd, lower.tail = FALSE)] |>
+  _[,
+    constant := pnorm(
+      -1.8,
+      mean = t2m,
+      sd = mean(sd[t2m > -1.8], na.rm = TRUE),
+      lower.tail = FALSE
     )
   ] |>
+  _[, .(t2m, obs, normal, constant)] |>
+  melt(id.vars = "t2m") |>
+  ggplot(aes(t2m, value)) +
+  geom_line(aes(color = variable))
+```
+
+
+```{r}
+t2m |>
+  _[,
+    .(t2m_sd = mean(t2m_sd, na.rm = TRUE), n = .N),
+    by = .(t2m = cut_t2m(t2m), aice = cut_ice(aice))
+  ] |>
+  _[n > 50] |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = t2m_sd)) +
+  scale_fill_viridis_c()
+```
+
+```{r}
+t2m |>
   _[,
     .(t2m_sd = mean(t2m_sd, na.rm = TRUE), n = .N),
     by = .(t2m = cut_t2m(t2m), lat = cut_width(lat, width = 4, center = -50))
@@ -186,4 +366,65 @@ events |>
   ggplot(aes(x, y)) +
   geom_raster(aes(fill = z)) +
   facet_wrap(~event_id)
+```
+
+
+
+
+
+
+```{r}
+
+plot(f1, xlim = c(-6, 6))
+```
+
+
+```{r}
+f(1) |> f1()
+```
+
+```{r}
+f <- \(x) 1 / (1 + exp(-x))
+
+f1 <- \(x) log(x / (1 - x))
+
+
+x_mean <- -3
+x_sd <- 0.1
+B <- 1000
+
+# The thing I would compute normally
+f(x_mean)
+
+# The actual effect 
+rnorm(B, x_mean, x_sd) |> 
+  f() |> 
+  mean()
+
+# The "effective temperature" that I would like to compute 
+# based on x_mean, x_sd (and other possible moments) 
+rnorm(B, x_mean, 0.001) |> 
+  f() |> 
+  mean() |> 
+  f1()
+```
+
+
+
+```{r}
+effecive_value <- function(mean, sd, f, f1, B) {
+  rnorm(B, mean, sd) |>
+    f() |>
+    mean() |>
+    f1()
+}
+
+CJ(
+  mean = seq(-6, 0, length.out = 30),
+  sd = exp(seq(log(0.001), log(3), length.out = 30))
+) |>
+  _[, eff := effecive_value(mean, sd, f, f1, 1000), by = .(mean, sd)] |>
+  _[] |> 
+  ggplot(aes(mean, sd)) +
+  geom_contour_fill(aes(z = eff))
 ```
