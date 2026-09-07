@@ -56,14 +56,14 @@ The abrupt drop in Antarctic sea ice extent around 2015--2016 after decades of s
 This sudden change has raised the question of whether sea ice has experienced a critical transition [@purich2023; @hobbs2024], suggesting that Antarctica has entered an uncharted territory. 
 Critical transitions are not only abrupt, but potentially irreversible in human timescales, therefore determining whether one has happened could inform future expectations. 
 
-Under certain assumptions, we would expect an increase in standard deviation and autocorrelation of a timeseries as it approaches a critical transition [@lenton2011].
-SO these early warnings of critical transitions can, in principle, help us detect them. 
-@hobbs2024 suggest that standard deviation antarctic sea ice area has been increasing since records began in the 1980s.
+Under certain assumptions, we would expect an increase in standard deviation and autocorrelation of a time series as it approaches a critical transition [@lenton2011].
+So these early warnings of critical transitions can, in principle, help us detect them. 
+@hobbs2024 suggest that the standard deviation of Antarctic sea ice area has been increasing since records began in the 1980s.
 They, as well as @raphael2025, also measured an increase in autocorrelation but, inconsistent with the detection of a critical transition, only after the 2016 rapid loss.
 This statistical evidence is far from definitive in part due to the short length of the observational record. 
 
 Theoretical models of sea ice evolution could help us contextualise the scant observations available. 
-However, state-of-the-art climate models struggle to simulate the observed Antarctic sea ice mean state and variability [@roach2020] due to inadequate representation of key sea ice processes, external atmospheric or oceanic forcing or both. 
+However, state-of-the-art climate models struggle to simulate the observed Antarctic sea ice mean state and variability [@roach2020] due to inadequate representation of key sea ice processes, external atmospheric or oceanic forcing, or both. 
 There is some evidence that incorrect representation of atmospheric trends plays a role [@purich2016].
 By nudging model winds toward observations above 850 hPa, @espinosa2024 was able to simulate the record-low sea ice extent in 2023, although not the preceding expanding trends or the dramatic change in 2015. 
 On the other hand, @roach2023 was able to reproduce sea ice expansion via wind forcing, but not the post-2015 decline.
@@ -71,10 +71,10 @@ Earlier, @blanchard-wrigglesworth2021 managed to improve Antarctic sea ice trend
 However, mean state biases were not significantly affected and the model simulated a strong decrease in the 1980--1990 incompatible with observations. 
 They conclude that model biases might not come from biased winds, but from problems in the model's ice thermodynamics. 
 
-Simpler conceptual models could also assist in our understanding and considerable work has been done in developing theoretical models of floe thickness evolution based on the heat exchange through the ice[@thorndike1992; @lepparanta1993; @jones2025].
-However the main diagnostic of Antarctic sea ice is total or regional sea ice area, which these models don't attempt to simulate. 
-The focus on sea ice area is due in part due to observational constraints, as it is much easier to detect the presence and absence of sea ice than it is to estimate its thickness, but also due to it's physical relevance: the effect of sea ice on albedo and heat transfer depends only weakly on thickness beyond a few centimetres [@makshtas1991]. 
-A simplified model of sea ice concentration (and thus area) amenable to bifurcation analysis would help to bridge the gap between our observations an the theory of critical transitions. 
+Simpler conceptual models could also assist in our understanding, and considerable work has been done in developing theoretical models of floe thickness evolution based on the heat exchange through the ice[@thorndike1992; @lepparanta1993; @jones2025].
+However, the main diagnostic of Antarctic sea ice is total or regional sea ice area, which these models don't attempt to simulate. 
+The focus on sea ice area is due in part to observational constraints, as it is much easier to detect the presence and absence of sea ice than it is to estimate its thickness, but also due to its physical relevance: the effect of sea ice on albedo and heat transfer depends only weakly on thickness beyond a few centimetres [@makshtas1991]. 
+A simplified model of sea ice concentration (and thus area) amenable to bifurcation analysis would help to bridge the gap between our observations and the theory of critical transitions. 
 
 Sea ice grows and melts as the ocean loses or gains heat to the atmosphere, so near-surface air temperature is a crucial variable to consider. 
 But, since sea ice insulates the ocean from the atmosphere, heat transfer between the ocean and the atmosphere depends also on the sea ice cover. 
@@ -83,7 +83,7 @@ Furthermore, sea ice concentration is bounded, which means that even low or high
 This means that the state of the sea ice itself is an important factor that modulates the net effect of any air temperature forcing. 
 This state dependence implies that the relationship between air temperature and sea ice concentration cannot be linear. 
 
-Here I demonstrate this state-dependence by defining a Concentration Tendency Surface as the mean change of sea ice concentration within a gridcell as a joint function of 2-metre air temperature and sea ice concentration. 
+Here I demonstrate this state dependence by defining a Concentration Tendency Surface as the mean change of sea ice concentration within a grid cell as a joint function of 2-metre air temperature and sea ice concentration. 
 I derive a simple analytical expression for this Surface from first principles and then estimate it from observations. 
 Identifying regions of discrepancy provides intuition of the effect of the missing processes in this simple model. 
 I explore the validity of the Concentration Tendency Surface by integrating it forward using observed 2-metre temperature forcing. 
@@ -215,7 +215,7 @@ cmip_files <- cmip6()
 ```
 
 Finally, I compute CTS of historical CMIP6 simulations [@eyring2016] (1850--2014) and the SSP5-8.5 scenario [@oneill2016]. 
-Models with available monthly sea ice concentration and monthly near-surface temperature available for both experiments are used. 
+Models with monthly sea ice concentration and near-surface temperature available for both experiments are used. 
 All models and variables are bilinearly interpolated to a 1° grid and restricted to the Southern Ocean south of 50°S.
 Only the first ensemble member (r1i1p1f1) is used.
 The 17 models analysed are: `r cmip_files$model |> unique() |> sort() |> knitr::combine_words()`.
@@ -274,7 +274,7 @@ $$
 
 where $\beta_m$ is a melting proportionality constant that in principle could be different from $\beta_f$. 
 
-The full model, therefore is
+The full model, therefore, is
 
 $$
 \frac{dC}{dt} =
@@ -798,7 +798,7 @@ models |>
 
 
 These basic properties of the simple CTS are compared with observations in @fig-aice-lines. 
-Observations are computed by averaging gridcells with temperatures of `r celsius(low_t)` and `r celsius(high_t)` $\pm$ 0.25°C and sea ice concentration values binned at boxes 2% wide. 
+Observations are computed by averaging grid cells with temperatures of `r celsius(low_t)` and `r celsius(high_t)` $\pm$ 0.25°C and sea ice concentration values binned in boxes 2% wide. 
 The overall observed curve fits notably well with the simple theory in the melt regime. 
 Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea ice insulation. 
 At 100% sea ice concentrations, melt values are not exactly zero. 
@@ -1063,7 +1063,7 @@ forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
 
 Since the Concentration Tendency Surface defines a prognostic equation of sea ice concentration, we can integrate it in time using temperature fields as forcing. 
 This can help in understanding what aspects of sea ice variability can be explained by the Concentration Tendency Surface. 
-By integrating both the Concentration Tendency Surface from @eq-model and the observed one (@fig-daice-monthly panels b and a respectively) I can further analyise the impact of modelling the dependency of $T_f$ on sea ice concentration. 
+By integrating both the Concentration Tendency Surface from @eq-model and the observed one (@fig-daice-monthly panels b and a, respectively), I can further analyse the impact of modelling the dependency of $T_f$ on sea ice concentration. 
 The observed Concentration Tendency Surface is not defined for unobserved values of sea ice concentration and temperatures, and it is highly uncertain in regions of that space with sparse observations.
 To address both issues, I smooth the surface with a 2D LOESS fit, using only parts of the grid with more than 100 observations, and extrapolate the extreme values in regions with no data. 
 I use ERA5 2-m temperature as forcing and integrate the models using January `r year(int_range[1])` observations as initial conditions and run it until December `r year(int_range[2])`. 
@@ -1644,7 +1644,7 @@ This can mean that, in the coupled model, they arise from issues in the processe
 The strong association between errors in the CTS in CMIP6 models and their error in the seasonal cycle of sea ice area further supports the CTS as a compact method of model evaluation that can help distinguish between thermodynamic errors in the sea ice component from errors arising from other processes external to sea ice. 
 
 
-** This comparision doesn't depend on the model simulating the timing of the variabilty ** 
+** This comparison doesn't depend on the model simulating the timing of the variability ** 
 
 While this estimation of the CTS was shown to be useful, there are several potential modifications to better represent and isolate the thermodynamic effects. 
 In this work I estimated sea ice concentration tendency by simple difference between months, but this includes contributions of sea ice advection and divergence. 
