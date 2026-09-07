@@ -91,6 +91,39 @@
 \makeatother
 
 
+% definitions for citeproc citations
+\NewDocumentCommand\citeproctext{}{}
+\NewDocumentCommand\citeproc{mm}{%
+  \begingroup\def\citeproctext{#2}\cite{#1}\endgroup}
+\makeatletter
+ % allow citations to break across lines
+ \let\@cite@ofmt\@firstofone
+ % avoid brackets around text for \cite:
+ \def\@biblabel#1{}
+ \def\@cite#1#2{{#1\if@tempswa , #2\fi}}
+\makeatother
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newenvironment{CSLReferences}[2] % #1 hanging-indent, #2 entry-spacing
+ {\begin{list}{}{%
+  \setlength{\itemindent}{0pt}
+  \setlength{\leftmargin}{0pt}
+  \setlength{\parsep}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1
+   \setlength{\leftmargin}{\cslhangindent}
+   \setlength{\itemindent}{-1\cslhangindent}
+  \fi
+  % set entry spacing
+  \setlength{\itemsep}{#2\baselineskip}}}
+ {\end{list}}
+\usepackage{calc}
+\newcommand{\CSLBlock}[1]{\hfill\break\parbox[t]{\linewidth}{\strut\ignorespaces#1\strut}}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth - \csllabelwidth}{\strut#1\strut}}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
 
 
 
@@ -189,158 +222,138 @@ Points are not included in the word count.
 \end{keypoints}
 
 \begin{abstract}
-The abstract (1) states the nature of the investigation and (2)
-summarizes the important conclusions. The abstract should be suitable
-for indexing. Your abstract should:
-
-\begin{itemize}
-\tightlist
-\item
-  Be set as a single paragraph.
-\item
-  Be less than 250 words for all journals except GRL, for which the
-  limit is 150 words.
-\item
-  Not include table or figure mentions.
-\item
-  Avoid reference citations unless dependent on or directly related to
-  another paper (e.g., companion, comment, reply, or commentary on
-  another paper(s)). AGU's Style Guide discusses formatting citations in
-  abstracts.
-\item
-  Define all abbreviations.
-\end{itemize}
+\todo{TODO}
 \end{abstract}
 
 \section*{Plain Language Summary}
-A Plain Language Summary (PLS) can be an incredibly effective science
-communication tool. By summarizing your paper in non-technical terms,
-you can explain your research and its relevance to a much broader
-audience. A PLS is required for submissions to AGU Advances, G-Cubed,
-GeoHealth, GRL, JAMES, JGR: Biogeosciences, JGR: Oceans, JGR: Planets,
-JGR: Solid Earth, JGR: Atmospheres, Space Weather, and Reviews of
-Geophysics, but optional for other journals. A PLS should be no longer
-than 200 words and should be free of jargon, acronyms, equations, and
-any technical information that would be unknown to people from outside
-your scientific discipline. Read our tips for creating an effective PLS.
+\todo{TODO}
 
 
 
 
 \section{Introduction}\label{introduction}
 
-The abrupt drop in Antarctic sea ice extent around 2015--2016
-(\textbf{purich2023?}) raised the question of whether sea ice has
-experienced a critical transition (\textbf{hobbs2024?}), which has
-implications to the potential irreversibility of the decrease and the
-potential or more extremes (\textbf{raphael2025?}). However, due to the
-short length of the obsevational record, statistical evidence for a
-critical transition is scarce. Firm theoretical justification is also
-hampered by our lack of understanding of the various feedbacks at play.
-Furthermore, state of the art climate models struggle to simulate the
-observed Antarctic sea ice mean state and variability
-(\textbf{roach2020?}).
+The abrupt drop in Antarctic sea ice extent around 2015--2016 after
+decades of steady increase (Turner et al., 2017) challenges our
+understanding of sea ice variability. This sudden change has raised the
+question of whether sea ice has experienced a critical transition (Hobbs
+et al., 2024; Purich \& Doddridge, 2023), suggesting that Antarctica has
+entered an uncharted territory. Critical transitions are not only
+abrupt, but potentially irreversible in human timescales, therefore
+determining whether one has happened could inform future expectations.
 
-Models' inability to correctly simulate Antarctic sea ice could be due
-either to issues of the sea ice model itself or come from inadequate
-representation of the external atmospheric or oceanic forcing. There is
-some evidence that incorrect representation of atmospheric trends play a
-role (\textbf{purich2016?}). Nudging model winds toward obsevations
-above 850hPa, (\textbf{espinosa2024?}) was able to simulate the record
-low sea ice extent in 2023, although not the preceeding expanding trends
-or the dramatic change in 2015. On the other hand, (\textbf{roach2023?})
-was able to reproduce sea ice expansion via wind forcing, but not the
-post-2015 decline. Earlier, (\textbf{blanchard-wrigglesworth2021?})
-managed to improve Antarctic sea ice trends in the CESM model, including
-the expansion in 1990--2015 and the post-2015 decline. However, mean
-state biases were not significantly affected and the model simulated a
-strong decrease in the 1980--1990 incompatible with observations. They
-conclude that model biases might not come from biased winds, but from
-problems in the model's ice thermodynamics.
+Under certain assumptions, we would expect an increase in standard
+deviation and autocorrelation of a time series as it approaches a
+critical transition (Lenton, 2011). So these early warnings of critical
+transitions can, in principle, help us detect them. Hobbs et al. (2024)
+suggest that the standard deviation of Antarctic sea ice area has been
+increasing since records began in the 1980s. They, as well as Raphael et
+al. (2025), also measured an increase in autocorrelation but,
+inconsistent with the detection of a critical transition, only after the
+2016 rapid loss. This statistical evidence is far from definitive in
+part due to the short length of the observational record.
 
-Considerable work has been done in developing theoretical models of sea
-ice thickness growth(\textbf{thorndike1992?}; \textbf{lepparanta1993?};
-\textbf{jones2025?}). These models predict the thinning and thickening
-of individual ice floes based on the heat exchange through the ice.
-However, currently the main diagnostic for sea ice is area or extent as
-an aggregate of sea ice concentration. This is in part due to
-observational constrains, as it is much easier to detect presence and
-absense of sea ice than it is to estimate its thickness. But since the
-effect of sea ice on albedo and heat transfer depends only weakly on
-thickness beyond a few centimiters (\textbf{makshtas1991?}) sea ice
-concentation and its aggregate measures are useful.
+Theoretical models of sea ice evolution could help us contextualise the
+scant observations available. However, state-of-the-art climate models
+struggle to simulate the observed Antarctic sea ice mean state and
+variability (Roach et al., 2020) due to inadequate representation of key
+sea ice processes, external atmospheric or oceanic forcing, or both.
+There is some evidence that incorrect representation of atmospheric
+trends plays a role (Purich et al., 2016). By nudging model winds toward
+observations above 850 hPa, Espinosa et al. (2024) was able to simulate
+the record-low sea ice extent in 2023, although not the preceding
+expanding trends or the dramatic change in 2015. On the other hand,
+Roach et al. (2023) was able to reproduce sea ice expansion via wind
+forcing, but not the post-2015 decline. Earlier, Blanchard-Wrigglesworth
+et al. (2021) managed to improve Antarctic sea ice trends in the CESM
+model, including the expansion in 1990--2015 and the post-2015 decline.
+However, mean state biases were not significantly affected and the model
+simulated a strong decrease in the 1980--1990 incompatible with
+observations. They conclude that model biases might not come from biased
+winds, but from problems in the model's ice thermodynamics.
+
+Simpler conceptual models could also assist in our understanding, and
+considerable work has been done in developing theoretical models of floe
+thickness evolution based on the heat exchange through the ice(Jones,
+2025; Leppäranta, 1993; Thorndike, 1992). However, the main diagnostic
+of Antarctic sea ice is total or regional sea ice area, which these
+models don't attempt to simulate. The focus on sea ice area is due in
+part to observational constraints, as it is much easier to detect the
+presence and absence of sea ice than it is to estimate its thickness,
+but also due to its physical relevance: the effect of sea ice on albedo
+and heat transfer depends only weakly on thickness beyond a few
+centimetres (Makshtas, 1991). A simplified model of sea ice
+concentration (and thus area) amenable to bifurcation analysis would
+help to bridge the gap between our observations and the theory of
+critical transitions.
 
 Sea ice grows and melts as the ocean loses or gains heat to the
-atmosphere, near-surface air temprature is a crucial variable in
-consideration. But, since sea ice insulates the ocean from the
-atmosphere, heat transfer between the ocean and the atmosphere depends
-also on the sea ice cover. So an area with high sea ice cover will
-exchange little heat with the atmosphere even in the presence of a
-strong temperature difference, whereas an area with lots of ice-free
-surface will experience big heat fluxes even with mild anomalies.
-Furthermore, sea ice concentration is bounded, which means that even low
-or high temperature anomalies can only have an effect where there's open
-water to freeze or sea ice to melt respectively. This means that the
-state of the sea ice itself is an important factor that modulates the
-net effect of any air temperature forcing. This state-dependence implies
-that the relationship between air temperaure and sea ice concentration
-cannot be linear.
+atmosphere, so near-surface air temperature is a crucial variable to
+consider. But, since sea ice insulates the ocean from the atmosphere,
+heat transfer between the ocean and the atmosphere depends also on the
+sea ice cover. An area with high sea ice cover will exchange little heat
+with the atmosphere even in the presence of a strong temperature
+difference, whereas an area with lots of ice-free surface will
+experience big heat fluxes even with mild anomalies. Furthermore, sea
+ice concentration is bounded, which means that even low or high
+temperature anomalies can only have an effect where there's open water
+to freeze or sea ice to melt respectively. This means that the state of
+the sea ice itself is an important factor that modulates the net effect
+of any air temperature forcing. This state dependence implies that the
+relationship between air temperature and sea ice concentration cannot be
+linear.
 
-Of course there are other variables at play. Dynamically, sea ice is in
-constant motion, so advection and divergence of sea ice floes will
-affect sea ice concentration locally without thermodynamic melt or
-freeze. Ice processes such as sea ice floes crashing over each other and
-deforming will also change sea ice concentrations within a cell;
-reducing area but increasing thickness. These are improtant locally but
-do not affect the total sea ice area except from indirect feedbacks.
-Thermodynamically, horizontal and vertial heat flux within the ocean
-will affect sea ice evolution. These processes do affect total area and
-are demeed to be important especially in the recent sea ice retreat
-(\textbf{purich2023?}). In this work they will not be studied in order
-to try to isolate specifically the atmospheric contribution.
-\todo[]{This last section is important (especially to hedge against (justified) complains of missing processes, but I'm not sure where to put it)}
+Dynamically, sea ice is in constant motion, so advection and divergence
+of sea ice floes will affect sea ice concentration locally without
+thermodynamic melt or freeze (Holland \& Kwok, 2012). Ice processes such
+as sea ice floes crashing over each other and deforming will also change
+sea ice concentrations within a cell; reducing area but increasing
+thickness. These are important locally but do not affect the total sea
+ice area except through indirect feedbacks. Thermodynamically,
+horizontal and vertical heat fluxes within the ocean will affect sea ice
+evolution. These processes do affect total area and are deemed to be
+important, especially in the recent sea ice retreat (Purich \&
+Doddridge, 2023). In this work, they will not be studied in order to
+isolate the atmospheric contribution specifically.
 
-Here I demonstrate this state-dependence by defining a Concentration
-Tendency Surface as the mean change of sea ice concentration within a
-gridcell as a joint function of 2-metre air temperature and sea ice
-concentration. I derive a simple analytical expression of this Surface
-from first principles and then estimate it from obsevations. Identifying
-regions of discrepancy allows me to gain intuition of the effect of the
-missing processes in this simple model. I explore the validity of the
-Concentration Tendency Surface by integrating it forward using observed
-2-metre temperature forcing. Finally, I evaluate the Concentration
-Tendency Surface of CMIP6 models to investigate if errors in this
-thermodynamic relationship are indicative of errors in the simualted sea
-ice.
+Here I define a Concentration Tendency Surface as the mean change of sea
+ice concentration within a grid cell as a joint function of 2-metre air
+temperature and sea ice concentration. I derive a simple analytical
+expression for this Surface from first principles and then estimate it
+from observations. Identifying regions of discrepancy provides intuition
+of the effect of the missing processes in this simple model. I explore
+the validity of the Concentration Tendency Surface by integrating it
+forward using observed 2-metre temperature forcing. Finally, I evaluate
+the Concentration Tendency Surface of CMIP6 models to investigate if
+errors in this thermodynamic relationship are indicative of errors in
+the simulated sea ice.
 
 \section{Data and Methods}\label{data-and-methods}
 
-\todo{Flesh out this whole section}
-
 I use Antarctic sea ice concentration from NOAA/NSIDC's Climate Data
-Record V4 {[}CDR; (\textbf{meier2014?}){]}. This dataset takes the
-maximum value of the NASA Team (\textbf{cavalieri1984?}) and NASA
-Bootstrap (\textbf{comiso2023?}) sea ice concentration products to
-reduce their low concentration bias (\textbf{meier2014?};
-\textbf{meier2021?}). Both source algorithms use data from the Scanning
-Multichannel Microwave Radiometer (SMMR) on the Nimbus-7 satellite and
-from the Special Sensor Microwave/Imager (SSM/I) sensors on the Defense
-Meteorological Satellite Program's (DMSP) -F8, -F11, and -F13
-satellites. The data have a spatial resolution of 25 by 25 km on a
-stereographic projection and daily from November 1978 onwards. Monthly
-values are obtained by averaging the daily record and the analysis is
-restricted to the preiod 1981--2023 to avoid the early period that used
-interpolated data every other day. I compute monthly sea ice tendency as
-the difference between sea ice concentration at one month and the next.
+Record V4 {[}CDR; Meier et al. (2014){]}. This dataset takes the maximum
+value of the NASA Team (Cavalieri et al., 1984) and NASA Bootstrap
+(Comiso, 2023) sea ice concentration products to reduce their low
+concentration bias (Meier et al., 2014; Meier et al., 2021). Both source
+algorithms use data from the Scanning Multichannel Microwave Radiometer
+(SMMR) on the Nimbus-7 satellite and from the Special Sensor
+Microwave/Imager (SSM/I) sensors on the Defense Meteorological Satellite
+Program's (DMSP) -F8, -F11, and -F13 satellites. The data have a spatial
+resolution of 25 by 25 km on a stereographic projection and are
+available daily from November 1978 onwards. Monthly values are obtained
+by averaging the daily record, and the analysis is restricted to the
+period 1981--2023 to avoid the early period that used interpolated data
+every other day. I compute monthly sea ice tendency as the difference
+between sea ice concentration at one month and the next.
 
 I use monthly mean 2-metre air temperature and Sea Surface temperature
-(SST) from ERA5 (\textbf{hersbach2020?}) for the same period. Both
+(SST) from ERA5 (Hersbach et al., 2020) for the same period. Both
 variables are bilinearly interpolated to the CDR grid prior to analysis.
-Besides monthly mean, I also compute the monthly standard deviation of
-2-metre air temperature from deaily mean values.
+In addition to the monthly mean, I also compute the monthly standard
+deviation of 2-metre air temperature from daily mean values.
 
 To estimate the empirical Concentration Tendency Surface (CTS), I group
-all gridcells an all months according to their 2-metre air temperature
+all grid cells and all months according to their 2-metre air temperature
 and sea ice concentration and compute the average sea ice tendency.
 Temperature is binned at 0.4°C intervals and sea ice concentration at
 0.02\% intervals. For numerical integration, regions of the
@@ -348,8 +361,9 @@ temperature-sea ice concentration space with fewer than 50 observations
 are imputed using the nearest values with more than 50 observations
 after applying a 2D locally-weighted regression (LOESS). Theoretical CTS
 are estimated by fitting their free parameters to observations by
-nonlinear squares (\textbf{bates1988?}) using the minpack.lm R package
-(\textbf{R-minpack.lm?}).
+nonlinear squares (Bates \& Watts, 1988) using the minpack.lm R package
+(Timur V. Elzhov, Katharine M. Mullen, Andrej-Nikolai Spiess, Ben
+Bolker, 2022).
 
 The CTS-based prognostic models are integrated forward in time using a
 fourth-order Runge--Kutta scheme forced by monthly mean 2-metre
@@ -358,18 +372,29 @@ January 1983 sea ice concentrations and run to December 2023.
 
 As comparison, I use ensemble mean 1 month lead time sea ice
 concentration hindcasts from the ACCESS-S2 coupled seasonal prediction
-system (\textbf{wedd2022?}) of the Australian Bureau of Meteorology.
+system (Wedd et al., 2022) of the Australian Bureau of Meteorology.
 
-Finally, I compute CTS of historical CMIP6 simulations
-(\textbf{eyring2016?}) (1850--2014) and the SSP5-8.5 scenario
-(\textbf{oneill2016?}). Models with available monthly sea ice
-concentration and monthly near-surface temperature available for both
-experiments are used. All models and variables are bilinearly
-interpolated to a 1° grid and restricted to the Southern Ocean south of
-50°S. Only the first ensemble memebr (r1i1p1f1) is used. The 17 models
-analysed are BCC-CSM2-MR, CAMS-CSM1-0, CanESM5, CAS-ESM2-0, CESM2-WACCM,
-CMCC-CM2-SR5, CMCC-ESM2, FGOALS-g3, FIO-ESM-2-0, MIROC6, MPI-ESM1-2-HR,
-MPI-ESM1-2-LR, MRI-ESM2-0, NESM3, NorESM2-LM, NorESM2-MM, and TaiESM1.
+Finally, I compute CTS of historical CMIP6 simulations (Eyring et al.,
+2016) (1850--2014) and the SSP5-8.5 scenario (O'Neill et al., 2016).
+Models with monthly sea ice concentration and near-surface temperature
+available for both experiments are used. All models and variables are
+bilinearly interpolated to a 1° grid and restricted to the Southern
+Ocean south of 50°S. Only the first ensemble member (r1i1p1f1) is used.
+The 17 models analysed are: ACCESS-CM2, ACCESS-ESM1-5, BCC-CSM2-MR,
+CAMS-CSM1-0, CanESM5, CAS-ESM2-0, CESM2-WACCM, CMCC-CM2-SR5, CMCC-ESM2,
+FGOALS-g3, FIO-ESM-2-0, MIROC6, MPI-ESM1-2-HR, MPI-ESM1-2-LR,
+MRI-ESM2-0, NESM3, NorESM2-LM, NorESM2-MM, and TaiESM1.
+
+\section{Computational procedures}\label{computational-procedures}
+
+I performed all analyses in this paper using the R programming language
+(R Core Team, 2020), using data.table (Barrett et al., 2006) and metR
+(Campitelli, 2018) packages. Significant processing was performed using
+the CDO command line operators (Schulzweida, 2023) via the rcdo R
+package (Campitelli, 2025). Sea ice models were written in C++ for speed
+and integrated in R using the Rcpp package (Eddelbuettel et al., 2008).
+All graphics are made using ggplot2 (Wickham, 2009). The paper was
+rendered using knitr and Quarto (Allaire et al., 2022; Xie, 2015).
 
 \section{Results}\label{results}
 
@@ -377,7 +402,7 @@ MPI-ESM1-2-LR, MRI-ESM2-0, NESM3, NorESM2-LM, NorESM2-MM, and TaiESM1.
 growth}\label{simple-model-of-sea-ice-growth}
 
 I start with a simplified model of sea ice growth. In this model, each
-cell has an area of water and of an area covered with ice. Assuming that
+cell has an area of water and an area covered with ice. Assuming that
 sea ice is a perfect insulator, the ocean surface exchanges heat with
 the atmosphere only in the ice-free surface. This heat flux is
 parameterised with a bulk formula as a function of air-sea temperature
@@ -393,9 +418,9 @@ The full formula for the heat exchange at each gridcell is then
 F = \alpha (T_a - T_f) (1 - C)
 }\end{equation}
 
-Where, \(T_f\) and \(T_a\) are the freezing point temperature of the
-ocean and temperature of the atmosphere respectively, \(C\) is the
-proportion of the gridcell covered with ice and \(\alpha\) is a
+where \(T_f\) and \(T_a\) are the freezing-point temperature of the
+ocean and the temperature of the atmosphere, respectively; \(C\) is the
+proportion of the grid cell covered with ice; and \(\alpha\) is a
 proportionality constant.
 
 To relate heat flux to sea ice concentration change, we can assume that
@@ -406,22 +431,22 @@ ocean frozen \(F_{p}\).
 F_{p} = \frac{F} {(1 + \left| F \right |)}
 \]
 
-This transformation ensures that \(F_p\) is bounded by
-\(\left(0, 1\right)\) and parameterises a saturation point beyond
-extremely strong fluxes will be partially counteracted by other
-processes like horizontal and vertical transport of heat within the top
-layer of the ocean.
+This transformation ensures that \(F_p\) is bounded between \(-1\) and
+\(1\) and parameterises a saturation point beyond which extremely strong
+fluxes will be partially counteracted by other processes, such as
+horizontal and vertical transport of heat within the top layer of the
+ocean.
 
 If \(F_p\) is negative, the heat lost to the ocean is balanced by
 freezing. However, because only ice-free areas can freeze, I assume that
-the change in sea ice concentration is also proportial to the ice-free
+the change in sea ice concentration is also proportional to the ice-free
 area.
 
 \[
 \frac{dC}{dt} = -\beta_f F_{p} (1 - C)
 \]
 
-Where \(\beta_f\) is a freezing proportionality constant.
+where \(\beta_f\) is a freezing proportionality constant.
 
 Conversely, if \(F_p\) is positive, the ocean gains heat which is used
 to melt ice. In this case it is only ice-covered areas which can melt,
@@ -432,10 +457,10 @@ concentration itself.
 \frac{dC}{dt} = -\beta_m F_{p} C
 \]
 
-Where \(\beta_m\) is a memlting proportionality constant that in
+where \(\beta_m\) is a melting proportionality constant that in
 principle could be different from \(\beta_f\).
 
-The full model, therefore is
+The full model, therefore, is
 
 \begin{equation}\phantomsection\label{eq-model}{
 \frac{dC}{dt} =
@@ -445,46 +470,40 @@ The full model, therefore is
 \end{cases}
 }\end{equation}
 
-This simple models implies a functional form of sea ice concentration
+This simple model implies a functional form of sea ice concentration
 tendency as a function of air temperature and sea ice concentration. For
 conciseness, I will refer to this relationship as the Concentration
-Tendency Surface (CTS). \todo[inline]{Other options: 
-State-dependent Temperature-Ice Response. STIR. 
-State-dependent Ice Response to Temperature. SIRT
-Concentration-dependent Ice Response to Temperature. CIRT
-Concentration–Temperature Response Surface. CTRS
-Concentration Tendency Surface
-}
+Tendency Surface (CTS).
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-theory-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/001_fig-theory-1.png}}
 
 }
 
-\caption{\label{fig-theory}Sea ice concentation change as a function of
-sea ice concentration in the melt and freeze regime defined by
+\caption{\label{fig-theory}Sea ice concentration change as a function of
+sea ice concentration in the melt and freezing regimes defined by
 Equation~\ref{eq-model}. Constants are arbitrarily set to 1.}
 
 \end{figure}%
 
 To illustrate the basic properties of this simple model,
 Figure~\ref{fig-theory} shows the change in monthly sea ice
-concentration change as function of sea ice concentration for
-temperatures in the melting and freezing regimes. Parameters are all set
-arbitrarily to 1. For a given temperature below freezing (blue line),
-sea ice growth is maximum at low sea ice concentrations since that
-maximises both the heat loss and ice-free ocean that is available for
-freezing whereas at high sea ice concentrations heat fluxes are
-suppressed and there is little open water to freeze, leading to slow
-growth. For a given temperature above freezing (red line), sea ice melt
-is slow both at low concentrations because there is little ice left to
-melt and at high concentrations because the ice insulates the ocean from
-the atmosphere. Maximum melt is at around 75\% sea ice concentrations,
-when there is enough ice to melt and enough ice-free ocean for the ocean
-to exchange heat.
+concentration as a function of sea ice concentration for temperatures in
+the melting and freezing regimes. Parameters are all set arbitrarily to
+1. For a given temperature below freezing (blue line), sea ice growth is
+maximum at low sea ice concentrations since that maximises both the heat
+loss and ice-free ocean that is available for freezing whereas at high
+sea ice concentrations heat fluxes are suppressed and there is little
+open water to freeze, leading to slow growth. For a given temperature
+above freezing (red line), sea ice melt is slow both at low
+concentrations because there is little ice left to melt and at high
+concentrations because the ice insulates the ocean from the atmosphere.
+Maximum melt is at around 75\% sea ice concentrations, when there is
+enough ice to melt and enough ice-free ocean for the ocean to exchange
+heat.
 
 \section{Observations}\label{observations}
 
@@ -492,7 +511,41 @@ to exchange heat.
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-aice-lines-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/002_fig-grid-sd-1.png}}
+
+}
+
+\caption{\label{fig-grid-sd}Standard deviation}
+
+\end{figure}%
+
+Before comparing the theoretical predictions with observations, it is
+appropirate to consider whether \(dC/dt\) can be computed from sea ice
+concentration and 2-metre temperature at all. In order to do that, I
+compute the error in estimating \(dC/dt\) as the average observed
+tendency as a function of these variables. This error, computed as the
+standard deviation excluding conditions where air temperature is greater
+than 0°C and no ice is present, is 0.160. For comparison, the full
+standard deviation of sea ice change is 0.232. The Concentration
+Tendency Surface therefore explains 52\% of the variance in sea ice
+concentration change, indicating that this can be a useful model of sea
+ice growth.
+
+Figure~\ref{fig-grid-sd} shows the standard deviation of \(dC/dt\) as a
+function of temperature and sea ice concentration and illustrates that
+this mean error is in no way homogeneous. Both for low sea ice
+concentrations at higher temperatures, and for high sea ice
+concentration at low temperature the error is lower than 0.15. The error
+increases to between 0.2 and 0.35 at temperatures between -5°C and -3°C
+and sea ice concentration below 0.75. This suggests that ice dynamics
+and ocean processes are particularly important at these intermediate
+temperatures.
+
+\begin{figure}
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/003_fig-aice-lines-1.png}}
 
 }
 
@@ -500,20 +553,16 @@ to exchange heat.
 
 \end{figure}%
 
-These basic properties of the the simple CTS are compared with
-observations in Figure~\ref{fig-aice-lines}. Observations are computed
-by averaging gridcells with temperatures of -7°C and -1°C \(\pm\) 0.25°C
-and sea ice concentration values binned at boxes 2\% wide. The overall
-observed curve fits notably well with the simple theory in the melt
-regime. Melt is zero at zero concentrations by mathematical necessity,
-but it is also low at high concentrations, showing the stabilisation
-effect of sea ice insulation. At 100\% sea ice concentrations, melt
-values are not exactly zero. This in likely partly due to the binning --
-which means that these values are actually the average of values between
-95\% and 100\% -- but also likely a real effect that includes many
-processes that the model doesn't take into account, such as transp``ort,
-deformation, melting from below and heat exchange through the ice
-itself.
+The basic properties of the simple CTS are compared with observations in
+Figure~\ref{fig-aice-lines}. Observations are computed by averaging grid
+cells with temperatures of -7°C and -1°C \(\pm\) 0.25°C and sea ice
+concentration values binned in boxes 2\% wide. The overall observed
+curve fits notably well with the simple theory in the melt regime. Melt
+is zero at zero concentrations by mathematical necessity, but it is also
+low at high concentrations, showing the stabilisation effect of sea ice
+insulation. At 100\% sea ice concentrations, melt values are not exactly
+zero due to the binning -- which means that these values are actually
+the average of values between 95\% and 100\%.
 
 In the growth regime, observations don't follow the simple model as
 well. Although, they show low growth at high concentrations and high
@@ -529,16 +578,16 @@ sea ice actually melts even when exposed to low temperatures.
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-daice-monthly-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/004_fig-daice-monthly-1.png}}
 
 }
 
 \caption{\label{fig-daice-monthly}Concentration Tendency Surfaces for
-(a) observations (b) Equation~\ref{eq-model} (c) Equation~\ref{eq-model}
-with a varying \(T_f\) and (d) Equation~\ref{eq-model} with extra term
-of ocean flux. The gray area represents regions with less than 10
-observations. Horizontal lines at \{celsius(low\_t)\} and
-\{celsius(high\_t)\} indicate the cross-section shown in
+(a) observations, (b) Equation~\ref{eq-model}, (c)
+Equation~\ref{eq-model} with a varying \(T_f\), and (d)
+Equation~\ref{eq-model} with an extra ocean flux term. The gray area
+represents regions with fewer than 10 observations. Horizontal lines at
+-7°C and -1°C indicate the cross-section shown in
 Figure~\ref{fig-aice-lines}.}
 
 \end{figure}%
@@ -547,12 +596,12 @@ To understand this deficiency better, Figure~\ref{fig-daice-monthly}
 shows the complete CTS for observations and the simple model. The black
 line marks the ``zero line'' that divides sea ice growth from melt,
 which is an estimate of the effective \(T_f\) in Equation~\ref{eq-flux}.
-Contraty to the model's assumption, this zero line is not constant and
+Contrary to the model's assumption, this zero line is not constant and
 instead depends heavily on sea ice concentration. At low concentration,
 air temperature just below -2°C is enough to cause sea ice growth on
 average, but as sea ice concentration increases, the air needs to be
 increasingly colder for ice not to melt. At about 50\% sea ice
-concentration, air temperature need to be lower than -5°C for ice to
+concentration, air temperature needs to be lower than -5°C for ice to
 grow. This property cannot be captured by the model in
 Equation~\ref{eq-model}, which assumes that sea ice will grow whenever
 air temperature is below the freezing point of ocean water, which is
@@ -561,7 +610,7 @@ assumed constant.
 The freezing point of water depends on salinity and sea ice growth and
 melt directly affect surface salinity by brine rejection and releasing
 fresh water. However, no normal sea surface salinity value could explain
-a freezeing temperature of -5°C or below. Another possible issue is the
+a freezing temperature of -5°C or below. Another possible issue is the
 assumption that ocean temperatures are constant. However, reproducing
 the same plot but using the difference between 2-metre air temperature
 and SST results in almost the same relationship
@@ -571,7 +620,7 @@ The simple model could be altered to try to account for this discrepancy
 to gain insights into what is causing it. A direct refinement of the
 model is to postulate an ad-hoc dependency of \(T_f\) on sea ice
 concentration. The black line in Figure~\ref{fig-daice-monthly} panel a
-is well modelled a fourth degree polinomial in
+is well modelled by a fourth-degree polynomial in
 Equation~\ref{eq-tf-model} fitted by linear regression.
 
 \begin{equation}\phantomsection\label{eq-tf-model}{
@@ -583,41 +632,41 @@ expression in Equation~\ref{eq-tf-model} and fitting the parameters
 using observed data results in the CTS shown in
 Figure~\ref{fig-daice-monthly} panel c.~ This model reproduces the
 dependency of \(T_f\) on sea ice concentration by definition. However,
-it slightly overestimates the melt ocurring at low temperatures at high
+it slightly overestimates the melt occurring at low temperatures at high
 sea ice concentrations and features a discontinuity in the derivative of
 \(dI/dt\) with respect to sea ice concentration, creating a ``kink''
 seen in Figure~\ref{fig-aice-lines} c.~ Moreover, as this is a wholly
-ad-hoc modification, it is not usefull to understand the physical
-processes that create this dependency. It would be preferrable to have a
-model in which the dependency of \(T_f\) with sea ice concentration
-arised as an emergent property from physically motivated rules.
+ad-hoc modification, it is not useful for understanding the physical
+processes that create this dependence. It would be preferable to have a
+model in which the dependence of \(T_f\) on sea ice concentration arises
+as an emergent property from physically motivated rules.
 
-A physics-based refinement of the model is to pressupose a positive heat
-flux representing warming of the water from the bottom by mixing of
+A physics-based refinement of the model is to presuppose a positive heat
+flux representing warming of the water from below by mixing with
 relatively warmer subsurface water. Under this formulation, ice would
 grow only if the freezing at the surface from the atmosphere was larger
 than the melting from the ocean, which would require more extreme air
 temperature when ice insulation is higher at higher concentrations, thus
 creating an effective dependency on \(T_f\) on sea ice concentration.
-Both wind forcing and waves can induce mixing, and both are dampened by
-the presence of sea ice, therefore this flux should also be proportional
-to the ice-free area. In this full model the change in sea ice
-concentration is decomposed into change due to air fluxes and ocean
+Both wind forcing and waves can induce mixing, and both are damped by
+the presence of sea ice; therefore, this flux should also be
+proportional to the ice-free area. In this full model, the change in sea
+ice concentration is decomposed into changes due to air fluxes and ocean
 fluxes.
 
 \[
 \frac{dC}{dt} = \left.\frac{dC}{dt}\right|_a  + \left.\frac{dC}{dt}\right|_o 
 \]
 
-Where \(\left.\frac{dC}{dt}\right|_a\) is the air temperature-induced
-changed computed as before and \(\left.\frac{dC}{dt}\right|_o\) is the
-bottom ocean
+where \(\left.\frac{dC}{dt}\right|_a\) is the air-temperature-induced
+change computed as before and \(\left.\frac{dC}{dt}\right|_o\) is the
+bottom-ocean contribution.
 
 \[
 \left.\frac{dC}{dt}\right|_o = \beta_m F_o C 
 \]
 
-Where \(F_o = \gamma(1 - C)\). The new parameter \(\gamma\) modulates
+where \(F_o = \gamma(1 - C)\). The new parameter \(\gamma\) modulates
 the strength of the flux.
 
 The results for this model with parameters fitted to observations are
@@ -627,22 +676,22 @@ dependency comparable with observations, although the exact shape is
 clearly not correct; it is too flat at low sea ice concentrations and
 too steep at high sea ice concentrations.
 
-Finally, the dependence of \(T_f\) on sea ice concentations might be
+Finally, the dependence of \(T_f\) on sea ice concentrations might be
 explained by sub-monthly temperature variations. For
 Figure~\ref{fig-aice-lines} e and Figure~\ref{fig-daice-monthly} e, I
-ran 5000 simulaitons of Equation~\ref{eq-model} in which I added a
-random normal perturbation to 2-meter temperature with mean zero and
-standard deviation taken from observations of monthly standard deviation
-of air temperature as a function of monthly mean temperature and monthly
-mean sea ice concentrations (Figure~\ref{fig-t2m_sd}). Random submonthly
-temperature fluctuations approximate \(T_f\) well but it subestimates
-sea ice growth at low sea ice concentrations. Note that the standard
-deviation includes daily fluctuations as well as the daily trend in
-temperature from the seasonal cycle. It is not clear why intramonthly
-2-m temperature variability increases so much at low temperatures. Note
-that there is little dependence of variabilty on sea ice concentration,
-suggesting that bufering from the ocean and insulation by sea ice can
-only play a minor role.
+ran 5000 simulations of Equation~\ref{eq-model} in which I added a
+random normal perturbation to 2-metre temperature with a mean of zero
+and a standard deviation taken from observations of the monthly standard
+deviation of air temperature as a function of monthly mean temperature
+and monthly mean sea ice concentration (Figure~\ref{fig-t2m_sd}). Random
+sub-monthly temperature fluctuations approximate \(T_f\) well, but they
+underestimate sea ice growth at low sea ice concentrations. Note that
+the standard deviation includes daily fluctuations as well as the daily
+trend in temperature from the seasonal cycle. It is not clear why
+intramonthly 2-m temperature variability increases so much at low
+temperatures. Note that there is little dependence of variability on sea
+ice concentration, suggesting that buffering from the ocean and
+insulation by sea ice can only play a minor role.
 
 An alternative model imposing a damping forcing that relaxes sea ice
 concentrations towards a temperature-dependent value was tried. This
@@ -650,141 +699,133 @@ formulation would attempt to take into account that gridpoints with
 either particularly high or low sea ice concentration values compared
 with their surroundings will tend to either export ice away or gain ice
 from their neighbours. However, the estimated damping strength from
-observations was minimal and could not explain the observed shaped of
-the ice-temperature surface and was not consistent with the observed
-minimal melt at 100\% sea ice concentraions.
-
-\begin{figure}
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-grid-sd-1.png}}
-
-}
-
-\caption{\label{fig-grid-sd}Standard deviation}
-
-\end{figure}%
-
-The average error of the predicting \(dC/dt\) from air temperature and
-sea ice concentration, estimated as the standard deviation of
-observations conditioned by the observed Concentration Tendency Surface
-(Figure~\ref{fig-daice-monthly} panel a) excluding air temperature
-greater than 0°C and no ice is present, is 0.160. For comparison, the
-standard deviation of sea ice change is 0.232. The Concentration
-Tendency Surface therefore explains 52\% of the variance in sea ice
-concentration change. Figure~\ref{fig-grid-sd} shows the standard
-deviation of \(dC/dt\) as a function of temperature and sea ice
-concentration and illustrates that this mean error is in no way
-homogeneous. Both for low sea ice concentrations at higher temperatures,
-and for high sea ice concentration at low temperature the error is lower
-than 0.15. The error increases to between 0.2 and 0.35 at temperatures
-between -5°C and -3°C and sea ice concentration below 0.75. This
-suggests that ice dynamics and ocean processes are particularly
-important at these intermediate tempeartures.
-\todo[]{I feel this part needs to be moved before, like a justification to show that the Concentration Tendency Surface actually exists}
+observations was minimal and could not explain the observed shape of the
+ice-temperature surface and was not consistent with the observed minimal
+melt at 100\% sea ice concentrations.
 
 \section{Using the Concentration Tendency Surface to predict sea
 ice}\label{using-the-concentration-tendency-surface-to-predict-sea-ice}
 
 Since the Concentration Tendency Surface defines a prognostic equation
-of sea ice concentration, we can integrate it in time using temperature
+of sea ice concentration, I can integrate it in time using temperature
 fields as forcing. This can help in understanding what aspects of sea
-ice variabilty can be explained by the Concentration Tendency Surface.
+ice variability can be explained by the Concentration Tendency Surface.
 By integrating both the Concentration Tendency Surface from
 Equation~\ref{eq-model} and the observed one
-(Figure~\ref{fig-daice-monthly} panels b and a respectively) I can
-further analyise the impact of modelling the dependency of \(T_f\) on
-sea ice concentration. The observed Concentration Tendency Surface is
-not defined for unobserved values of sea ice concentation and
-temperatures and it is highly uncertain in region of that space with
-sparce observations. To address both issues, I smooth the surface with
-2D loess smooth utilising only parts of the grid with more than 100
-observations and extrapolate the extreme values in regions with no data.
-I use ERA5 2-m temperature as forcing and integrate the models using
-January 1983 observations as initial conditions and run it until
-December 2023. For comparison, I use sea ice concentration forecasts
-with a 1 month lead time by ACCESS-S2 {[}REF{]}, the Bureau of
-Meteorology Subseasonal to Seasonal prediction model.
+(Figure~\ref{fig-daice-monthly} panels b and a, respectively), I can
+further analyse the impact of modelling the dependency of \(T_f\) on sea
+ice concentration. The observed Concentration Tendency Surface is not
+defined for unobserved values of sea ice concentration and temperatures,
+and it is highly uncertain in regions of that space with sparse
+observations. To address both issues, I smooth the surface with a 2D
+LOESS fit, using only parts of the grid with more than 100 observations,
+and extrapolate the extreme values in regions with no data. I use ERA5
+2-m temperature as forcing and integrate the models using January 1983
+observations as initial conditions and run it until December 2023. For
+comparison, I use sea ice concentration forecasts with a 1 month lead
+time by ACCESS-S2 (Wedd et al., 2022), the Bureau of Meteorology
+Subseasonal to Seasonal prediction model.
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-seasonal-cycle-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/005_fig-seasonal-cycle-1.png}}
 
 }
 
-\caption{\label{fig-seasonal-cycle}Monthly mean sea ice area for each
-model. Observations in gray.}
+\caption{\label{fig-seasonal-cycle}Monthly mean sea ice area and 95\%
+confidence interval for observations (panel a) and simulations using
+forward integration of the observed CTS (panel b),
+Equation~\ref{eq-model} (panel c) and ACCESS-S2 (panel d). Observed
+monthly mean ice area is shown in gray in the background for
+comparison.}
 
 \end{figure}%
 
 The Concentration Tendency Surfaces seem to simulate sea ice quite well
 compared with a coupled model. Figure~\ref{fig-seasonal-cycle} shows the
-seasonal cycle of sea ice area for of simulations based on the simple
-model, the model based on observations and 1-month forecast of
+seasonal cycle of sea ice area for simulations based on the simple
+model, the model based on observations, and the 1-month forecast from
 ACCESS-S2. Both CTS-based models experience a seasonal cycle of similar
-amplitude to observations, although the in the simple model, its phase
-is shited by about one month.
+amplitude to observations, although in the simple model the phase is
+shifted by about one month.
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-bias-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/006_fig-bias-1.png}}
 
 }
 
-\caption{\label{fig-bias}Sea ice concentration bias compared with
-observations for February and September.}
+\caption{\label{fig-bias}February and September sea ice concentration
+bias for simulations using forward integration of the observed CTS
+(panel a), Equation~\ref{eq-model} (panel b) and ACCESS-S2 (panel c).}
 
 \end{figure}%
 
 However, this aggregated quantity hides spatial variation.
-Figure~\ref{fig-bias} shows that sea ice concentration bias localy high
-in the models. ALl three models show a strong low concentration bias in
-the Weddell Sea in February, while the models based in Concentration
-Tendency Surfaces models also exhibit high concentraiton bias in the
-Ross Sea. It is likely that the lack of dynamical processes in these
-models is what is causing this bias. If that is the case, then the fact
-that the coupled model share the same feature suggest a problem in the
-dynamics of the model.
+Figure~\ref{fig-bias} shows that sea ice concentration bias is locally
+high in the models. All three models show a strong low-concentration
+bias in the Weddell Sea in February, while the models based on
+Concentration Tendency Surfaces also exhibit a high-concentration bias
+in the Ross Sea. It is likely that the lack of dynamical processes in
+these models is what is causing this bias. If that is the case, then the
+fact that the coupled model shares the same feature suggests a problem
+in the dynamics of the model.
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-area-anomalies-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/007_fig-area-anomalies-1.png}}
 
 }
 
-\caption{\label{fig-area-anomalies}Monthyl sea ice area anomalies.}
+\caption{\label{fig-area-anomalies}Monthly sea ice area anomalies for
+observations (panel a) and simulations using forward integration of the
+observed CTS (panel b), Equation~\ref{eq-model} (panel c) and ACCESS-S2
+(panel d). Observed sea ice area anomalies are shown in gray in the
+background for comparison. The error of each model compared with
+observations (RMSE estimate and 95\% confidence interval in million of
+square kilometers) is shown in the top right of each panel.}
 
 \end{figure}%
 
-Despite large local biases, the statistical models simulate sea ice area
-anomalies remarcable well (Figure~\ref{fig-area-anomalies}).
-\todo{more information here}
+Despite large local biases, the CTS-based models simulate sea ice area
+anomalies remarkably well (Figure~\ref{fig-area-anomalies}). Both the
+observed CTS and the CTS fitted on Equation~\ref{eq-model} reproduce the
+overall observed variabilty, including the long term increase followed
+by the sudden decrease in 2016 and the next decade of low sea ice. While
+this suggests that these trends could be explained by atmospheric
+forcing alone, it is important to note that the observed temperature
+fields used for forcing will inevitably carry an imprint of the observed
+sea ice anomalies. The overall error of the CTS-based models is
+significantly lower than the ACCESS-S2 error. Note that the ACCESS-S2
+system does not assimilate sea ice concentration observations but does
+assimilate temperature data (\textbf{campitelli2026?}), making it a
+realtively fair comparison.
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-spatial-cor-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/008_fig-spatial-cor-1.png}}
 
 }
 
 \caption{\label{fig-spatial-cor}Correlation between simulated and
-observed monthly mean sea ice concentration for the different models for
-February and September.}
+observed monthly mean sea ice concentration February and September for
+simulations using forward integration of the observed CTS (panel a),
+Equation~\ref{eq-model} (panel b) and ACCESS-S2 (panel c).}
 
 \end{figure}%
 
 Figure~\ref{fig-spatial-cor} shows the correlation of sea ice anomalies
-for Febuary and Septemeber. In Summer, models have comparable low
-correlation values, however in Spring, the statistical models show
-higher correlation that the coupled model in the ice edge, although
+for February and September. In summer, all simulations have comparably
+low correlation values; however, in spring, the CTS-based models show
+higher correlation than the coupled model at the ice edge, although
 correlations are near zero in the core of the ice pack. This likely is
 related to the low variance of sea ice concentrations in that region,
 where it's almost 100\% every September. This can be seen in
@@ -794,94 +835,104 @@ Figure~\ref{fig-sd}, that compares interannual standard deviation.
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-sd-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/009_fig-sd-1.png}}
 
 }
 
-\caption{\label{fig-sd}Interannual monthly standard deviation of monthly
-mean sea ice concentration anomalies for February and September and for
-each model and observations.}
+\caption{\label{fig-sd}February and September interannual monthly
+standard deviation of monthly mean sea ice concentration for
+observations (panel a) and simulations using forward integration of the
+observed CTS (panel b), Equation~\ref{eq-model} (panel c) and ACCESS-S2
+(panel d).}
 
 \end{figure}%
 
-While the statistical model does well in terms of correlation and
+While the CTS-base models do well in terms of correlation and
 Pan-Antarctic sea ice area, one important limitation is that the
 variability of the simulated sea ice concentrations is much lower than
 either observations or the coupled model simulation
-(Figure~\ref{fig-sd}). Lower variabilty is not unexpected since the
+(Figure~\ref{fig-sd}). Lower variability is not unexpected since the
 Concentration Tendency Surface doesn't include many sources of
-variability such as advection, divergence, thickness redistribution and
-ocean processes.
+variability such as advection, divergence, thickness redistribution, and
+ocean processes. This lack of variabilty does not translate to lower
+variabilty in sea ice area, however, indicating that regional anomalies
+largely compensate each other when aggregated.
 
-\section{CMIP6}\label{cmip6}
+\section{Evaluation of the Concentration Tendency Surface in CMIP6
+models}\label{evaluation-of-the-concentration-tendency-surface-in-cmip6-models}
 
-The Concentation Tendency Surface shown in
-Figure~\ref{fig-daice-monthly} a is assumed to be an emergent property
-of thermodynamic processes and interactions between sea ice and the
-atmosphere. To understand to what extent this relationship is stable and
-predictive of sea ice behaviour, we analyse it using historical
-simulations and SSP585 projections of CMIP6 models.
+The Concentration Tendency Surface shown in
+Figure~\ref{fig-daice-monthly} panel a is an emergent property of
+thermodynamic processes and interactions between sea ice and the
+atmosphere. To the extent that climate models represent these correctly,
+they should simulate a CTS simplar to the observed one. THerefore, the
+CTS can be used as a model evaluation tool.
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-historical-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/010_fig-cmip-historical-1.png}}
 
 }
 
 \caption{\label{fig-cmip-historical}Same as
 Figure~\ref{fig-daice-monthly} but for historical CMIP6 simulations in
-the preiod 1850--2014. The purple line marks the zero line from
+the period 1850--2014. The purple line marks the zero line from
 observations for comparison. Models ordered by ascending root mean
-square error compared with observations.}
+square error compared with observations. Regions with fewer than 10
+observations masked in gray.}
 
 \end{figure}%
 
-Figure~\ref{fig-cmip-historical} shows the relationship between sea ice
-concentration change, air temparature and sea ice concentration. All
-models the relationship follows the overall shape found in observations,
-indicating that this is a stable and physically meaninful relationship.
-However, there are indeed variation between models. Focusing only on the
-zero line, we observe that most models have a melt bias, in the sense
-that they lose sea ice at lower temperaturess than in observations.
-MIROC6 (Fig.~\ref{fig-cmip-historical}s) is a particularly loses ice at
+Figure~\ref{fig-cmip-historical} shows the CTS of selected CMIP6 models.
+The overall relationship is similar in all models, but with significant
+deviations. Focusing only on the zero line, most models have a slight
+melt bias in the sense that they lose sea ice at lower temperatures than
+in observations. A particularly dramatic example is MIROC6
+(Fig.~\ref{fig-cmip-historical} panel s), which loses ice on average at
 temperatures as cold as -6°C at 50\% sea ice concentration. The only
-models with a freeze bias (ice growing at higher temperatures than in
-observations) are ACCESS-CM2 and NESM3 (Fig.~\ref{fig-cmip-historical}g
-and i).
+models with a freeze bias (e.g.~ice growing at higher temperatures than
+in observations) are ACCESS-CM2 and NESM3
+(Fig.~\ref{fig-cmip-historical}g and i). In other models, such as
+MRI-ESM2.0, CanESM5 and CAS-ESM2.0 the zero line follows observations
+remarkably well.
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-rmse-bias-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/011_fig-rmse-bias-1.png}}
 
 }
 
-\caption{\label{fig-rmse-bias}RMSE of models.}
+\caption{\label{fig-rmse-bias}RMSE and Bias of the CTS of CMIP6 models
+compared with observations. Vertical and horizontal lines indicate the
+95\% confidence interval of each metric. `}
 
 \end{figure}%
 
 This evaluation of bias is incomplete since it is only based on the zero
-line and ignores the magntiude of melt of freeze at different
+line and ignores the magnitude of melt or freezing at different
 temperatures and sea ice concentrations. Figure~\ref{fig-rmse-bias}
 shows the bias and RMSE in change in sea ice concentration of each model
-compared with observations. Of the 17 evaluated models, 8 have an
-overall negative bias and 9 have positive bias an compared with
-observations. ACCESS-ESM1.5 is the only model that has statistically no
-bias in the historical simulation. With the exception of MIROC6, the
-magnitude of positive biases is similar to the magitude of negative
-biases, and the average bias accross models is -0 (CI: -0.02 -- 0.02),
-indicating that neither warm nor cold models dominate. However, models
-with negative bias tend to have larger RMSE, indicating large errors
-that compensate.
+compared with observations. Of the 19 evaluated models, 8 have an
+overall negative bias and 10 have a positive bias compared with
+observations. For ACCES-ESM1.5, even thoguh its zero line is slightly
+``warm'' (Fig.~\ref{fig-cmip-historical}) and stands in the middle of
+the pack in terms of RMSE, negative and positive errors are compensated
+leading to statistically zero bias. The magnitude of positive biases is
+similar to the magnitude of negative biases, and the average bias across
+models is 0 (CI: -0.02 -- 0.02), indicating that neither warm nor cold
+models dominate. Furthermore, there doens't appaer to be a strong
+relationship between bias and RMSE. MIROC6 is an outlier in that regard,
+with very large error and negative bias.
 
 \begin{figure}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-errors-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/012_fig-cmip-errors-1.png}}
 
 }
 
@@ -891,18 +942,93 @@ area. RMSE in panel a, bias in panel b.}
 
 \end{figure}%
 
-To test if errors in the temperature-ice relationship translate to
-errors in model representation of sea ice, Figure~\ref{fig-cmip-errors}
-compares these errors with errors in the representation of the seasonal
-cycle. RMSE of the temperature-ice relationship is highly predictive of
-RMSE in the seasonal cycle. Models where this relation is similar to
-observations simulate a seasonal cycle closer to the observed. Bias is
-less predictive than RMSE. Even models with a freeze bias, like
-CESM2\_WACCM or ACCESS-CM2, exhibit a negative sea ice area bias. There
-is a trend for lower negative sea ice area bias in those models with
-freeze bias, but that relationship is weaker than the RMSE one.
+To see how errors in the CTS translate to errors in model representation
+of sea ice, Figure~\ref{fig-cmip-errors} compares the RMSE and bias of
+CTS with the respective error measures in sea ice area seasonal cycle.
+Erors in the CTS are highly predictive of errors in the seasonal cycle
+accross models with, about 57\% of the variance in seasonal cycle error
+attributable to CTS error. On the other hand, CTS bias is less
+predictive of seasonal cycle bias. Only 22\% of bias variance is
+explaines by CTS bias and almost all models have a negative sea ice bias
+irregardless of the sign of the CTS bias. From the spread in
+Figure~\ref{fig-cmip-errors} panel b, a model with unbiased CTS would
+still simulate sea ice with an area about 3\(Mkm^2\) smaller than
+observations. This can be used as an estimate of the effect of ocean and
+atmosphere errors on sea ice area. Models with positive CTS biases, such
+as CESM2-WACCM or ACCESS-CM2, compensate for this error and produce less
+biased sea ice, but they seem to be doing to for the wrong reasons.
 
 \section{Conclusions}\label{conclusions}
+
+In this paper I describe the monthly change in Antarctic sea ice
+concentrations as a function of 2-metre air temperature and sea ice
+concentration. This defines a Concentration Tendency Surface (CTS) that
+attempts to encapsulate sea ice thermodynamic response to air
+temperature. The high percentage of variance explained by the CTS
+(52\%\%) suggests that this is a physically meaningful relationship and
+that sea ice response to air temperature accounts for a great deal of
+variability in sea ice. Nevertheless, recognising events and regions
+where the CTS mispredicts sea ice evolution can also be valuable, as
+comparing them with events and regions where the CTS does well could
+shed light in the atmospheric and oceanic conditions in which dynamics
+effects dominate over the thermodynamics.
+
+Sea ice concentration evolution depends strongly on the ice state
+itself, consistent with the insulation and geometric effects predicted
+by a simple thermodynamic model. However, these processes alone cannot
+account for the observed melting even at very low air temperatures when
+concentrations are high. Notably, without this phenomenon, equilibrium
+sea ice concentartion concentration at temperatures lower than the
+freezing point would be 100\%. Instead, observations show that there is
+an additional nonlinear mechanism that can sustain some open water even
+at extremely cold conditions. It is not clear what this mechanism
+consists of. Simple modelling suggests that ocean upwelling might be an
+explanation, but stochastic air temperature fluctuations at the daily
+level can also be playing a role.
+
+The fact that forward integration of the CTS prognostic equation can
+reproduce not only a realistic seasonal cycle but also the variability
+and trends of pan-Antarctic sea ice area suggests that thermodynamic
+processes play a crucial role. A potential limitation is that observed
+2-metre temperatures might be driven by the change in sea ice itself and
+are informing the model. Comparing a CTS integration with the results of
+an ocean model forced with prescribed temperatures could be a useful
+next step to further clarify this point.
+
+Some of the biases reproduced by the CTS equation are comparable to the
+biases in the ACCESS-S2 coupled model. This suggests that, in the
+coupled model, they arise from issues in the processes omitted in the
+CTS. Comparing CTS between models and observations allows to evaluate
+the model's sea ice response to forcing. It also permits to evaluate the
+model's variabiltiy without requiring the timing of the variabilty to
+match with observations. CMIP6 model errors are well correlated with CTS
+errors, indicating that they arise primarily due to inacurate sea ice
+response and not due to inaccurante atmospheric conditions. However,
+this is only applies to the seasonal cycle and not necessarily to
+trends. Further study should look it's potential utility on constraining
+future projections.
+
+While this estimation of the CTS was shown to be useful, there are
+several potential modifications to better represent and isolate the
+thermodynamic effects from other sources of variability. In this work I
+estimated sea ice concentration tendency by simple difference between
+months, but this conflates freezing and melting with contributions from
+sea ice advection and divergence. A cleaner division could be achieved
+by dividing the sea ice evolution into the dynamic and thermodynamic
+parts (Holland \& Kwok, 2012) and then using only the latter. The bulk
+formula for heat transfer implied in Equation~\ref{eq-model} also
+depends on the magnitude of the wind friction, but this is not included
+in the present analysis. Taking wind into account would involve adding
+at third dimension to the diagnostic, making visual interpretation more
+difficult; further work is needed to determine if this is an acceptable
+trade-off. Finally, analysing the CTS based on daily sea ice change
+could help better understand the role of submonthly fluctuations.
+
+The prognostic ecuation derived from the CTS cannot be used to analyise
+critical transitons as it does not define a coupled system with
+feedbacks; it is only a template. However, further refinements that
+include the effect of sea ice albedo on air and ocean temperature and
+the effect of brine rejection and ice melt on salinity are needed.
 
 \section{Acknowledgments}\label{acknowledgments}
 
@@ -913,7 +1039,7 @@ their model output, the Earth System Grid Federation (ESGF) for
 archiving the data and providing access, and the multiple funding
 agencies who support CMIP6 and ESGF.
 
-Caroline Holmes for idea of stochastic addition.
+We thank Caroline Holmes for the idea of the stochastic addition.
 
 \section{Open research}\label{open-research}
 
@@ -936,13 +1062,13 @@ fringilla at iaculis in, posuere non mauris. Ut eget imperdiet elit.
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-t2m_sd-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/013_fig-t2m_sd-1.png}}
 
 }
 
 \caption{\label{fig-t2m_sd}Mean monthly standard deviation of daily
 temperature as a function of monthly mean temperature and monthly mean
-sea ice concentation.}
+sea ice concentration.}
 
 \end{figure}%
 
@@ -950,7 +1076,7 @@ sea ice concentation.}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-daice-monthly-sst-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/014_fig-daice-monthly-sst-1.png}}
 
 }
 
@@ -964,7 +1090,7 @@ temperature and SST.}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-historical_old-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/015_fig-cmip-historical_old-1.png}}
 
 }
 
@@ -977,7 +1103,7 @@ Figure~\ref{fig-cmip-historical} but for the period 1985--XXX.}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-historical_new-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/016_fig-cmip-historical_new-1.png}}
 
 }
 
@@ -990,7 +1116,7 @@ Figure~\ref{fig-cmip-historical} but for the period XXX--2014.}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig-cmip-ssp585-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/017_fig-cmip-ssp585-1.png}}
 
 }
 
@@ -998,6 +1124,207 @@ Figure~\ref{fig-cmip-historical} but for the period XXX--2014.}
 but for SSP585 scenario}
 
 \end{figure}%
+
+\phantomsection\label{refs}
+\begin{CSLReferences}{1}{0}
+\bibitem[\citeproctext]{ref-allaire2022}
+Allaire, J. J., Teague, C., Xie, Y., \& Dervieux, C. (2022, January 10).
+Quarto. Zenodo. \url{https://doi.org/10.5281/ZENODO.5960048}
+
+\bibitem[\citeproctext]{ref-barrett2006}
+Barrett, T., Dowle, M., Srinivasan, A., Gorecki, J., Chirico, M.,
+Hocking, T., et al. (2006). Data.table: {Extension} of `data.frame`
+{[}Data set{]}. Comprehensive R Archive Network.
+\url{https://doi.org/10.32614/CRAN.package.data.table}
+
+\bibitem[\citeproctext]{ref-bates1988}
+Bates, D. M., \& Watts, D. G. (1988). \emph{Nonlinear {Regression
+Analysis} and {Its Applications}} (1st ed.). Wiley.
+\url{https://doi.org/10.1002/9780470316757}
+
+\bibitem[\citeproctext]{ref-blanchard-wrigglesworth2021}
+Blanchard-Wrigglesworth, E., Roach, L. A., Donohoe, A., \& Ding, Q.
+(2021). Impact of {Winds} and {Southern Ocean SSTs} on {Antarctic Sea
+Ice Trends} and {Variability}. \emph{Journal of Climate}, \emph{34}(3),
+949--965. \url{https://doi.org/10.1175/JCLI-D-20-0386.1}
+
+\bibitem[\citeproctext]{ref-campitelli2018c}
+Campitelli, E. (2018). {metR}: {Tools} for {Easier Analysis} of
+{Meteorological Fields} {[}Data set{]}. Comprehensive R Archive Network.
+\url{https://doi.org/10.32614/CRAN.package.metR}
+
+\bibitem[\citeproctext]{ref-campitelli2025b}
+Campitelli, E. (2025). Rcdo: {Wrapper} of '{CDO}' {Operators} {[}Data
+set{]}. Comprehensive R Archive Network.
+\url{https://doi.org/10.32614/CRAN.package.rcdo}
+
+\bibitem[\citeproctext]{ref-cavalieri1984}
+Cavalieri, D. J., Gloersen, P., \& Campbell, W. J. (1984). Determination
+of sea ice parameters with the {NIMBUS} 7 {SMMR}. \emph{Journal of
+Geophysical Research: Atmospheres}, \emph{89}(D4), 5355--5369.
+\url{https://doi.org/10.1029/JD089iD04p05355}
+
+\bibitem[\citeproctext]{ref-comiso2023}
+Comiso, J. (2023). Bootstrap {Sea Ice Concentrations} from {Nimbus-7
+SMMR} and {DMSP SSM}/{I-SSMIS}. ({NSIDC-0079}, {Version} 4). (Version 4)
+{[}Data set{]}. Boulder, Colorado USA.: {NASA National Snow and Ice Data
+Center Distributed Active Archive Center.}
+\url{https://doi.org/10.5067/X5LG68MH013O}
+
+\bibitem[\citeproctext]{ref-eddelbuettel2008}
+Eddelbuettel, D., Francois, R., Allaire, J., Ushey, K., Kou, Q.,
+Russell, N., et al. (2008). Rcpp: {Seamless R} and {C}++ {Integration}
+{[}Data set{]}. Comprehensive R Archive Network.
+\url{https://doi.org/10.32614/CRAN.package.Rcpp}
+
+\bibitem[\citeproctext]{ref-espinosa2024}
+Espinosa, Z. I., Blanchard-Wrigglesworth, E., \& Bitz, C. M. (2024).
+Understanding the drivers and predictability of record low {Antarctic}
+sea ice in austral winter 2023. \emph{Communications Earth \&
+Environment}, \emph{5}(1), 1--9.
+\url{https://doi.org/10.1038/s43247-024-01772-2}
+
+\bibitem[\citeproctext]{ref-eyring2016}
+Eyring, V., Bony, S., Meehl, G. A., Senior, C. A., Stevens, B.,
+Stouffer, R. J., \& Taylor, K. E. (2016). Overview of the {Coupled Model
+Intercomparison Project Phase} 6 ({CMIP6}) experimental design and
+organization. \emph{Geoscientific Model Development}, \emph{9}(5),
+1937--1958. \url{https://doi.org/10.5194/gmd-9-1937-2016}
+
+\bibitem[\citeproctext]{ref-hersbach2020}
+Hersbach, H., Bell, B., Berrisford, P., Hirahara, S., Horányi, A.,
+Muñoz-Sabater, J., et al. (2020). The {ERA5} global reanalysis.
+\emph{Quarterly Journal of the Royal Meteorological Society},
+\emph{146}(730), 1999--2049. \url{https://doi.org/10.1002/qj.3803}
+
+\bibitem[\citeproctext]{ref-hobbs2024}
+Hobbs, W., Spence, P., Meyer, A., Schroeter, S., Fraser, A. D., Reid,
+P., et al. (2024). Observational {Evidence} for a {Regime Shift} in
+{Summer Antarctic Sea Ice}. \emph{Journal of Climate}, \emph{37}(7),
+2263--2275. \url{https://doi.org/10.1175/JCLI-D-23-0479.1}
+
+\bibitem[\citeproctext]{ref-holland2012}
+Holland, P. R., \& Kwok, R. (2012). Wind-driven trends in {Antarctic}
+sea-ice drift. \emph{Nature Geoscience}, \emph{5}(12), 872--875.
+\url{https://doi.org/10.1038/ngeo1627}
+
+\bibitem[\citeproctext]{ref-jones2025}
+Jones, D. W. R. (2025). Thermodynamic growth of sea ice: Assessing the
+role of salinity using a quasi-static modelling framework. \emph{Journal
+of Fluid Mechanics}, \emph{1005}, A7.
+\url{https://doi.org/10.1017/jfm.2024.1177}
+
+\bibitem[\citeproctext]{ref-lenton2011}
+Lenton, T. M. (2011). Early warning of climate tipping points.
+\emph{Nature Climate Change}, \emph{1}(4), 201--209.
+\url{https://doi.org/10.1038/nclimate1143}
+
+\bibitem[\citeproctext]{ref-lepparanta1993}
+Leppäranta, M. (1993). A review of analytical models of sea-ice growth.
+\emph{Atmosphere-Ocean}, \emph{31}(1), 123--138.
+\url{https://doi.org/10.1080/07055900.1993.9649465}
+
+\bibitem[\citeproctext]{ref-makshtas1991}
+Makshtas, A. P. (1991). \emph{The {Heat Budget} of {Arctic Ice} in the
+{Winter}}. Cambridge, U.K.: International Glaciological Society.
+
+\bibitem[\citeproctext]{ref-meier2014}
+Meier, W. N., Peng, G., Scott, D. J., \& Savoie, M. H. (2014).
+Verification of a new {NOAA}/{NSIDC} passive microwave sea-ice
+concentration climate record. \emph{Polar Research}.
+\url{https://doi.org/10.3402/polar.v33.21004}
+
+\bibitem[\citeproctext]{ref-meier2021}
+Meier, W. N., Fetterer, F., Windnagel, A. K., \& Stewart, J. S. (2021).
+{NOAA}/{NSIDC Climate Data Record} of {Passive Microwave Sea Ice
+Concentration} {[}Data set{]}. Boulder, Colorado USA: {National Snow and
+Ice Data Center.} \url{https://doi.org/10.7265/efmz-2t65}
+
+\bibitem[\citeproctext]{ref-oneill2016}
+O'Neill, B. C., Tebaldi, C., van Vuuren, D. P., Eyring, V.,
+Friedlingstein, P., Hurtt, G., et al. (2016). The {Scenario Model
+Intercomparison Project} ({ScenarioMIP}) for {CMIP6}.
+\emph{Geoscientific Model Development}, \emph{9}(9), 3461--3482.
+\url{https://doi.org/10.5194/gmd-9-3461-2016}
+
+\bibitem[\citeproctext]{ref-purich2023}
+Purich, A., \& Doddridge, E. W. (2023). Record low {Antarctic} sea ice
+coverage indicates a new sea ice state. \emph{Communications Earth \&
+Environment}, \emph{4}(1), 1--9.
+\url{https://doi.org/10.1038/s43247-023-00961-9}
+
+\bibitem[\citeproctext]{ref-purich2016}
+Purich, A., Cai, W., England, M. H., \& Cowan, T. (2016). Evidence for
+link between modelled trends in {Antarctic} sea ice and underestimated
+westerly wind changes. \emph{Nature Communications}, \emph{7}(1), 10409.
+\url{https://doi.org/10.1038/ncomms10409}
+
+\bibitem[\citeproctext]{ref-rcoreteam2020}
+R Core Team. (2020). \emph{R: {A} language and environment for
+statistical computing}. manual, Vienna, Austria: R Foundation for
+Statistical Computing. Retrieved from \url{https://www.R-project.org/}
+
+\bibitem[\citeproctext]{ref-raphael2025}
+Raphael, M. N., Maierhofer, T. J., Fogt, R. L., Hobbs, W. R., \&
+Handcock, M. S. (2025). A twenty-first century structural change in
+{Antarctica}'s sea ice system. \emph{Communications Earth \&
+Environment}, \emph{6}(1), 1--9.
+\url{https://doi.org/10.1038/s43247-025-02107-5}
+
+\bibitem[\citeproctext]{ref-roach2020}
+Roach, L. A., Dörr, J., Holmes, C. R., Massonnet, F., Blockley, E. W.,
+Notz, D., et al. (2020). Antarctic {Sea Ice Area} in {CMIP6}.
+\emph{Geophysical Research Letters}, \emph{47}(9), e2019GL086729.
+\url{https://doi.org/10.1029/2019GL086729}
+
+\bibitem[\citeproctext]{ref-roach2023}
+Roach, L. A., Mankoff, K. D., Romanou, A., Blanchard-Wrigglesworth, E.,
+Haine, T. W. N., \& Schmidt, Gavin. A. (2023). Winds and {Meltwater
+Together Lead} to {Southern Ocean Surface Cooling} and {Sea Ice
+Expansion}. \emph{Geophysical Research Letters}, \emph{50}(24),
+e2023GL105948. \url{https://doi.org/10.1029/2023GL105948}
+
+\bibitem[\citeproctext]{ref-schulzweida2023}
+Schulzweida, U. (2023). {CDO User Guide} (Version 2.3.0).
+\url{https://doi.org/10.5281/ZENODO.10020800}
+
+\bibitem[\citeproctext]{ref-thorndike1992}
+Thorndike, A. S. (1992). A toy model linking atmospheric thermal
+radiation and sea ice growth. \emph{Journal of Geophysical Research:
+Oceans}, \emph{97}(C6), 9401--9410.
+\url{https://doi.org/10.1029/92JC00695}
+
+\bibitem[\citeproctext]{ref-R-minpack.lm}
+Timur V. Elzhov, Katharine M. Mullen, Andrej-Nikolai Spiess, Ben Bolker.
+(2022). Minpack.lm: {R Interface} to the {Levenberg-Marquardt Nonlinear
+Least-Squares Algorithm Found} in {MINPACK}, {Plus Support} for {Bounds}
+{[}Data set{]}. Comprehensive R Archive Network.
+\url{https://doi.org/10.32614/CRAN.package.minpack.lm}
+
+\bibitem[\citeproctext]{ref-turner2017}
+Turner, J., Phillips, T., Marshall, G. J., Hosking, J. S., Pope, J. O.,
+Bracegirdle, T. J., \& Deb, P. (2017). Unprecedented springtime retreat
+of {Antarctic} sea ice in 2016. \emph{Geophysical Research Letters},
+\emph{44}(13), 6868--6875. \url{https://doi.org/10.1002/2017GL073656}
+
+\bibitem[\citeproctext]{ref-wedd2022}
+Wedd, R., Alves, O., Burgh-Day, C. de, Down, C., Griffiths, M., Hendon,
+H. H., et al. (2022). {ACCESS-S2}: The upgraded {Bureau} of
+{Meteorology} multi-week to seasonal prediction system. \emph{Journal of
+Southern Hemisphere Earth Systems Science}, \emph{72}(3), 218--242.
+\url{https://doi.org/10.1071/ES22026}
+
+\bibitem[\citeproctext]{ref-wickham2009}
+Wickham, H. (2009). \emph{Ggplot2: {Elegant Graphics} for {Data
+Analysis}}. New York: Springer-Verlag.
+\url{https://doi.org/10.1007/978-0-387-98141-3}
+
+\bibitem[\citeproctext]{ref-xie2015}
+Xie, Y. (2015). \emph{Dynamic documents with {R} and knitr} (2nd ed.).
+Boca Raton, Florida: {Chapman and Hall/CRC}. Retrieved from
+\url{https://yihui.org/knitr/}
+
+\end{CSLReferences}
 
 
 
