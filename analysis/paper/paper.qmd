@@ -108,7 +108,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   cache = TRUE,
-  cache.extra = 42
+  cache.extra = 40
 )
 
 library(metR)
@@ -143,6 +143,17 @@ knitr::opts_hooks$set(label = function(options) {
   new_path <- paste0(options$fig.path, n, "_")
 
   options$fig.path <- new_path
+  return(options)
+})
+
+
+knitr::opts_hooks$set(fig.cap = function(options) {
+  if (is.null(options$fig.cap)) {
+    options$fig.cap <- "CAPTION MISSING"
+  }
+
+  options$fig.cap <- glue::glue(options$fig.cap)
+
   return(options)
 })
 ```
@@ -230,8 +241,8 @@ The 17 models analysed are: `r cmip_files$model |> unique() |> sort() |> knitr::
 
 ## Computational procedures 
 
-I performed all analyses in this paper using the R programming language [@rcoreteam2020], using data.table [@dowle2020] and metR [@campitelli2020] packages.
-Significant processing was performed using the CDO command line operators [@schulzweida2023] via rcdo [@campitelli2025b].
+I performed all analyses in this paper using the R programming language [@rcoreteam2020], using data.table [@barrett2006] and metR [@campitelli2018c] packages.
+Significant processing was performed using the CDO command line operators [@schulzweida2023] via the rcdo R package [@campitelli2025b].
 Sea ice models were written in C++ for speed and integrated in R using the Rcpp package [@eddelbuettel2008].
 All graphics are made using ggplot2 [@wickham2009].
 The paper was rendered using knitr and Quarto [@xie2015; @allaire2022].
@@ -298,14 +309,6 @@ doti <- latex2exp::TeX(r"(dC/dt)")
 
 This simple model implies a functional form of sea ice concentration tendency as a function of air temperature and sea ice concentration. 
 For conciseness, I will refer to this relationship as the Concentration Tendency Surface (CTS). 
-\todo[inline]{Other options: 
-State-dependent Temperature-Ice Response. STIR. 
-State-dependent Ice Response to Temperature. SIRT
-Concentration-dependent Ice Response to Temperature. CIRT
-Concentration–Temperature Response Surface. CTRS
-Concentration Tendency Surface
-}
-
 
 ```{r}
 #| label: fig-theory
@@ -753,6 +756,71 @@ models <- stochastic_grid |>
   _[, variable := factor(variable, levels = names(labs_models))]
 ```
 
+
+
+
+```{r}
+#| label: grid_monthly_rmse
+var_cond <- daice |>
+  copy() |>
+  _[, let(t2m = cut_mid(t2m, 0.2, 0), aice = cut_mid(aice, 0.01, 0.11))] |>
+  _[grid_monthly, on = c("t2m", "aice")] |>
+  _[!is.na(daice - i.daice)] |>
+  _[!(t2m > 0 & aice == 0.01)] |>
+  _[, .(var_cond = var(daice - i.daice), var = var(daice))]
+```
+
+```{r}
+#| label: fig-grid-sd 
+#| fig-cap: Standard deviation 
+#| fig-height: 4
+#| fig-width: 5
+
+grid_monthly |>
+  ggplot(aes(aice, t2m)) +
+  with_args(
+    list(breaks = seq(0, 0.35, by = 0.05)),
+    list(
+      geom_contour_fill(aes(z = daice_sd, fill = ..level..)),
+      geom_contour2(aes(z = daice_sd, label = ..level..))
+    )
+  ) +
+  geom_contour_fill(
+    data = grid_monthly,
+    aes(z = n, fill = NULL),
+    breaks = c(0, 100),
+    fill = "gray",
+    color = "gray30",
+    alpha = 0.5
+  ) +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 2.5),
+    expand = c(0, 0),
+    breaks = \(x) pretty(x, 10)
+  ) +
+  scale_x_continuous(
+    "Monthly mean sea ice concentration",
+    expand = c(0, 0),
+    limits = c(0, 1)
+  ) +
+  scale_linetype(guide = "none") +
+  wide_legend +
+  as.discretised_scale(scale_fill_viridis_c)("SD")
+```
+
+Before comparing the theoretical predictions with observations, it is appropirate to consider whether $dC/dt$ can be computed from sea ice concentration and 2-metre temperature at all. 
+In order to do that, I compute the error in estimating $dC/dt$ as the average observed tendency as a function of these variables. 
+This error, computed as the standard deviation excluding conditions where air temperature is greater than 0°C and no ice is present, is `r scales::number(sqrt(var_cond$var_cond), accuracy = 0.001)`. 
+For comparison, the full standard deviation of sea ice change is `r scales::number(sqrt(var_cond$var), accuracy = 0.001)`.
+The Concentration Tendency Surface therefore explains `r scales::percent(var_cond[, 1- var_cond/var])` of the variance in sea ice concentration change, indicating that this can be a useful model of sea ice growth. 
+
+@fig-grid-sd shows the standard deviation of $dC/dt$ as a function of temperature and sea ice concentration and illustrates that this mean error is in no way homogeneous. 
+Both for low sea ice concentrations at higher temperatures, and for high sea ice concentration at low temperature the error is lower than 0.15.
+The error increases to between 0.2 and 0.35 at temperatures between -5°C and -3°C and sea ice concentration below 0.75. 
+This suggests that ice dynamics and ocean processes are particularly important at these intermediate temperatures. 
+
+
 ```{r}
 #| label: fig-aice-lines
 #| fig-height: 3.5
@@ -803,13 +871,11 @@ models |>
   )
 ```
 
-
-These basic properties of the simple CTS are compared with observations in @fig-aice-lines. 
+The basic properties of the simple CTS are compared with observations in @fig-aice-lines. 
 Observations are computed by averaging grid cells with temperatures of `r celsius(low_t)` and `r celsius(high_t)` $\pm$ 0.25°C and sea ice concentration values binned in boxes 2% wide. 
 The overall observed curve fits notably well with the simple theory in the melt regime. 
 Melt is zero at zero concentrations by mathematical necessity, but it is also low at high concentrations, showing the stabilisation effect of sea ice insulation. 
-At 100% sea ice concentrations, melt values are not exactly zero. 
-This is likely partly due to the binning -- which means that these values are actually the average of values between 95% and 100% -- but it is also likely a real effect that includes many processes that the model doesn't take into account, such as transport, deformation, melting from below, and heat exchange through the ice itself. 
+At 100% sea ice concentrations, melt values are not exactly zero due to the binning -- which means that these values are actually the average of values between 95% and 100%.
 
 In the growth regime, observations don't follow the simple model as well.
 Although, they show low growth at high concentrations and high growth at low concentrations, they deviate from the simple model in two significant ways. 
@@ -900,7 +966,6 @@ plot_daice_monthly <- models |>
 plot_daice_monthly
 ```
 
-
 To understand this deficiency better, @fig-daice-monthly shows the complete CTS for observations and the simple model.
 The black line marks the "zero line" that divides sea ice growth from melt, which is an estimate of the effective $T_f$ in @eq-flux. 
 Contrary to the model's assumption, this zero line is not constant and instead depends heavily on sea ice concentration. 
@@ -977,64 +1042,6 @@ An alternative model imposing a damping forcing that relaxes sea ice concentrati
 This formulation would attempt to take into account that gridpoints with either particularly high or low sea ice concentration values compared with their surroundings will tend to either export ice away or gain ice from their neighbours. 
 However, the estimated damping strength from observations was minimal and could not explain the observed shape of the ice-temperature surface and was not consistent with the observed minimal melt at 100% sea ice concentrations. 
 
-```{r}
-#| label: grid_monthly_rmse
-var_cond <- daice |>
-  copy() |>
-  _[, let(t2m = cut_mid(t2m, 0.2, 0), aice = cut_mid(aice, 0.01, 0.11))] |>
-  _[grid_monthly, on = c("t2m", "aice")] |>
-  _[!is.na(daice - i.daice)] |>
-  _[!(t2m > 0 & aice == 0.01)] |>
-  _[, .(var_cond = var(daice - i.daice), var = var(daice))]
-```
-
-```{r}
-#| label: fig-grid-sd 
-#| fig-cap: Standard deviation 
-#| fig-height: 4
-#| fig-width: 5
-
-grid_monthly |>
-  ggplot(aes(aice, t2m)) +
-  with_args(
-    list(breaks = seq(0, 0.35, by = 0.05)),
-    list(
-      geom_contour_fill(aes(z = daice_sd, fill = ..level..)),
-      geom_contour2(aes(z = daice_sd, label = ..level..))
-    )
-  ) +
-  geom_contour_fill(
-    data = grid_monthly,
-    aes(z = n, fill = NULL),
-    breaks = c(0, 100),
-    fill = "gray",
-    color = "gray30",
-    alpha = 0.5
-  ) +
-  scale_y_continuous(
-    "Monthly mean 2-m temperature (°C)",
-    limits = c(-15, 2.5),
-    expand = c(0, 0),
-    breaks = \(x) pretty(x, 10)
-  ) +
-  scale_x_continuous(
-    "Monthly mean sea ice concentration",
-    expand = c(0, 0),
-    limits = c(0, 1)
-  ) +
-  scale_linetype(guide = "none") +
-  wide_legend +
-  as.discretised_scale(scale_fill_viridis_c)("SD")
-```
-
-The average error in predicting $dC/dt$ from air temperature and sea ice concentration, estimated as the standard deviation of observations conditioned on the observed Concentration Tendency Surface (@fig-daice-monthly panel a), excluding conditions where air temperature is greater than 0°C and no ice is present, is `r scales::number(sqrt(var_cond$var_cond), accuracy = 0.001)`. 
-For comparison, the standard deviation of sea ice change is `r scales::number(sqrt(var_cond$var), accuracy = 0.001)`.
-The Concentration Tendency Surface therefore explains `r scales::percent(var_cond[, 1- var_cond/var])` of the variance in sea ice concentration change. 
-@fig-grid-sd shows the standard deviation of $dC/dt$ as a function of temperature and sea ice concentration and illustrates that this mean error is in no way homogeneous. 
-Both for low sea ice concentrations at higher temperatures, and for high sea ice concentration at low temperature the error is lower than 0.15.
-The error increases to between 0.2 and 0.35 at temperatures between -5°C and -3°C and sea ice concentration below 0.75. 
-This suggests that ice dynamics and ocean processes are particularly important at these intermediate temperatures. 
-\todo[]{I feel this part needs to be moved before, like a justification to show that the Concentration Tendency Surface actually exists}
 
 ## Using the Concentration Tendency Surface to predict sea ice
 
@@ -1068,13 +1075,13 @@ time_fun <- \(t) {
 forcing_temp <- era_temp_fun(daice[mask, on = c("x", "y")])
 ```
 
-Since the Concentration Tendency Surface defines a prognostic equation of sea ice concentration, we can integrate it in time using temperature fields as forcing. 
+Since the Concentration Tendency Surface defines a prognostic equation of sea ice concentration, I can integrate it in time using temperature fields as forcing. 
 This can help in understanding what aspects of sea ice variability can be explained by the Concentration Tendency Surface. 
 By integrating both the Concentration Tendency Surface from @eq-model and the observed one (@fig-daice-monthly panels b and a, respectively), I can further analyse the impact of modelling the dependency of $T_f$ on sea ice concentration. 
 The observed Concentration Tendency Surface is not defined for unobserved values of sea ice concentration and temperatures, and it is highly uncertain in regions of that space with sparse observations.
 To address both issues, I smooth the surface with a 2D LOESS fit, using only parts of the grid with more than 100 observations, and extrapolate the extreme values in regions with no data. 
 I use ERA5 2-m temperature as forcing and integrate the models using January `r year(int_range[1])` observations as initial conditions and run it until December `r year(int_range[2])`. 
-For comparison, I use sea ice concentration forecasts with a 1 month lead time by ACCESS-S2 [REF], the Bureau of Meteorology Subseasonal to Seasonal prediction model. 
+For comparison, I use sea ice concentration forecasts with a 1 month lead time by ACCESS-S2 [@wedd2022], the Bureau of Meteorology Subseasonal to Seasonal prediction model. 
 
 ```{r}
 #| label: d_aice
@@ -1172,7 +1179,7 @@ area <- sims[,
 
 ```{r}
 #| label: fig-seasonal-cycle
-#| fig-cap: Monthly mean sea ice area for each model. Observations in gray.
+#| fig-cap: Monthly mean sea ice area and 95% confidence interval for observations (panel a) and simulations using forward integration of the observed CTS (panel b), @eq-model (panel c) and ACCESS-S2 (panel d). Observed monthly mean ice area is shown in gray in the background for comparison. 
 #| fig-width: 4
 #| fig-height: 4
 area |>
@@ -1232,7 +1239,7 @@ lonlat_lines <- with_args(
 
 ```{r}
 #| label: fig-bias
-#| fig-cap: Sea ice concentration bias compared with observations for February and September. 
+#| fig-cap: February and September sea ice concentration bias for simulations using forward integration of the observed CTS (panel a), @eq-model (panel b) and ACCESS-S2 (panel c).
 #| fig-width: 5
 #| fig-height: 8
 sims |>
@@ -1270,7 +1277,7 @@ If that is the case, then the fact that the coupled model shares the same featur
 
 ```{r}
 #| label: fig-area-anomalies
-#| fig-cap: Monthly sea ice area anomalies. 
+#| fig-cap: Monthly sea ice area anomalies for observations (panel a) and simulations using forward integration of the observed CTS (panel b), @eq-model (panel c) and ACCESS-S2 (panel d). Observed sea ice area anomalies are shown in gray in the background for comparison. The error of each model compared with observations (RMSE estimate and 95% confidence interval in million of square kilometers) is shown in the top right of each panel. 
 #| fig-height: 5
 #| fig-width: 5
 area |>
@@ -1280,11 +1287,26 @@ area |>
     area := area - mean(area[year(time) %between% c(1990, 2010)]),
     by = .(month(time), model)
   ] |>
+  _[, base := area[model == "daice"], by = .(time)] |>
   # _[model != "daice"] |>
   set_labels() |>
   ggplot(aes(time, area)) +
   geom_line(data = \(x) x[model == "daice"][, model := NULL], color = "gray") +
   geom_line() +
+  geom_text(
+    data = \(x) {
+      x[
+        model != "daice",
+        .(rmse = stat2text(rmse(base / 1e12, area / 1e12))),
+        by = model
+      ]
+    },
+    aes(label = rmse),
+    y = I(.9),
+    x = I(.99),
+    size = 2.4,
+    hjust = 1
+  ) +
   # scale_color_models +
   scale_y_continuous(
     NULL,
@@ -1295,8 +1317,11 @@ area |>
   tag_facets()
 ```
 
-Despite large local biases, the statistical models simulate sea ice area anomalies remarkably well (@fig-area-anomalies). \todo{more information here}
-
+Despite large local biases, the CTS-based models simulate sea ice area anomalies remarkably well (@fig-area-anomalies).
+Both the observed CTS and the CTS fitted on @eq-model reproduce the overall observed variabilty, including the long term increase followed by the sudden decrease in 2016 and the next decade of low sea ice.
+While this suggests that these trends could be explained by atmospheric forcing alone, it is important to note that the observed temperature fields used for forcing will inevitably carry an imprint of the observed sea ice anomalies.
+The overall error of the CTS-based models is significantly lower than the ACCESS-S2 error. 
+Note that the ACCESS-S2 system does not assimilate sea ice concentration observations but does assimilate temperature data [@campitelli2026], making it a realtively fair comparison. 
 
 ```{r}
 #| label: cors
@@ -1317,7 +1342,7 @@ cors <- sims |>
 
 ```{r}
 #| label: fig-spatial-cor
-#| fig-cap: Correlation between simulated and observed monthly mean sea ice concentration for the different models for February and September.
+#| fig-cap: Correlation between simulated and observed monthly mean sea ice concentration February and September for simulations using forward integration of the observed CTS (panel a), @eq-model (panel b) and ACCESS-S2 (panel c).
 #| fig-width: 5
 #| fig-height: 8
 
@@ -1347,15 +1372,14 @@ cors |>
   wide_legend
 ```
 
-
 @fig-spatial-cor shows the correlation of sea ice anomalies for February and September. 
-In summer, models have comparably low correlation values; however, in spring, the statistical models show higher correlation than the coupled model at the ice edge, although correlations are near zero in the core of the ice pack. 
+In summer, all simulations have comparably low correlation values; however, in spring, the CTS-based models show higher correlation than the coupled model at the ice edge, although correlations are near zero in the core of the ice pack. 
 This likely is related to the low variance of sea ice concentrations in that region, where it's almost 100% every September. 
 This can be seen in @fig-sd, that compares interannual standard deviation. 
 
 ```{r}
 #| label: fig-sd
-#| fig-cap: Interannual monthly standard deviation of monthly mean sea ice concentration anomalies for February and September and for each model and observations. 
+#| fig-cap: February and September interannual monthly standard deviation of monthly mean sea ice concentration for observations (panel a) and simulations using forward integration of the observed CTS (panel b), @eq-model (panel c) and ACCESS-S2 (panel d).
 #| fig-width: 5
 #| fig-height: 9
 
@@ -1386,16 +1410,16 @@ sims |>
   wide_legend
 ```
 
-While the statistical model does well in terms of correlation and Pan-Antarctic sea ice area, one important limitation is that the variability of the simulated sea ice concentrations is much lower than either observations or the coupled model simulation (@fig-sd). 
+While the CTS-base models do well in terms of correlation and Pan-Antarctic sea ice area, one important limitation is that the variability of the simulated sea ice concentrations is much lower than either observations or the coupled model simulation (@fig-sd). 
 Lower variability is not unexpected since the Concentration Tendency Surface doesn't include many sources of variability such as advection, divergence, thickness redistribution, and ocean processes. 
+This lack of variabilty does not translate to lower variabilty in sea ice area, however, indicating that regional anomalies largely compensate each other when aggregated. 
 
-## CMIP6
+## Evaluation of the Concentration Tendency Surface in CMIP6 models
 
-The Concentration Tendency Surface shown in @fig-daice-monthly a is assumed to be an emergent property of thermodynamic processes and interactions between sea ice and the atmosphere. 
-To understand the extent to which this relationship is stable and predictive of sea ice behaviour, we analyse it using historical simulations and SSP585 projections of CMIP6 models. 
+The Concentration Tendency Surface shown in @fig-daice-monthly panel a is an emergent property of thermodynamic processes and interactions between sea ice and the atmosphere. 
+To the extent that climate models represent these correctly, they should simulate a CTS simplar to the observed one. 
+THerefore, the CTS can be used as a model evaluation tool. 
 
-
- 
 ```{r}
 #| label: cmip_grid
 cmip_grid <- cmip_files |>
@@ -1452,7 +1476,7 @@ cmip_grid_split[, model := model_order(model)]
 
 ```{r}
 #| label: fig-cmip-historical
-#| fig-cap: Same as @fig-daice-monthly but for historical CMIP6 simulations in the period 1850--2014. The purple line marks the zero line from observations for comparison. Models ordered by ascending root mean square error compared with observations. 
+#| fig-cap: Same as @fig-daice-monthly but for historical CMIP6 simulations in the period 1850--2014. The purple line marks the zero line from observations for comparison. Models ordered by ascending root mean square error compared with observations. Regions with fewer than 10 observations masked in gray. 
 #| fig-width: 5
 #| fig-height: 7
 plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
@@ -1481,18 +1505,16 @@ plot_daice_monthly2 +
   theme(tagger.panel.tag.background = element_rect(fill = "white", colour = NA))
 ```
 
-
-@fig-cmip-historical shows the relationship between sea ice concentration change, air temperature, and sea ice concentration. 
-In all models, the relationship follows the overall shape found in observations, indicating that this is a stable and physically meaningful relationship. 
-However, there are indeed variations between models. 
-Focusing only on the zero line, we observe that most models have a melt bias, in the sense that they lose sea ice at lower temperatures than in observations. 
-MIROC6 ([Fig. @fig-cmip-historical]s) particularly loses ice at temperatures as cold as -6°C at 50% sea ice concentration. 
-The only models with a freeze bias (ice growing at higher temperatures than in observations) are ACCESS-CM2 and NESM3 ([Fig. @fig-cmip-historical]g and i). 
-
+@fig-cmip-historical shows the CTS of selected CMIP6 models. 
+The overall relationship is similar in all models, but with significant deviations. 
+Focusing only on the zero line, most models have a slight melt bias in the sense that they lose sea ice at lower temperatures than in observations. 
+A particularly dramatic example is MIROC6 ([Fig. @fig-cmip-historical] panel s), which loses ice on average at temperatures as cold as -6°C at 50% sea ice concentration. 
+The only models with a freeze bias (e.g. ice growing at higher temperatures than in observations) are ACCESS-CM2 and NESM3 ([Fig. @fig-cmip-historical]g and i). 
+In other models, such as MRI-ESM2.0, CanESM5 and CAS-ESM2.0 the zero line follows observations remarkably well. 
 
 ```{r}
 #| label: fig-rmse-bias
-#| fig-cap: RMSE of models. 
+#| fig-cap: RMSE and Bias of the CTS of CMIP6 models compared with observations. Vertical and horizontal lines indicate the 95% confidence interval of each metric. `
 #| fig-width: 5
 #| fig-height: 4
 
@@ -1551,9 +1573,10 @@ gdata |>
 This evaluation of bias is incomplete since it is only based on the zero line and ignores the magnitude of melt or freezing at different temperatures and sea ice concentrations. 
 @fig-rmse-bias shows the bias and RMSE in change in sea ice concentration of each model compared with observations. 
 Of the `r n_models` evaluated models, `r n_negative` have an overall negative bias and `r n_models - n_zero - n_negative` have a positive bias compared with observations. 
-ACCESS-ESM1.5 is the only model that has statistically no bias in the historical simulation. 
-With the exception of MIROC6, the magnitude of positive biases is similar to the magnitude of negative biases, and the average bias across models is `r with(mmm, stat2text(estimate_bias, low_bias, high_bias))`, indicating that neither warm nor cold models dominate. 
-However, models with negative bias tend to have larger RMSE, indicating large errors that compensate. 
+For ACCES-ESM1.5, even thoguh its zero line is slightly "warm" ([Fig. @fig-cmip-historical]) and stands in the middle of the pack in terms of RMSE, negative and positive errors are compensated leading to statistically zero bias. 
+The magnitude of positive biases is similar to the magnitude of negative biases, and the average bias across models is `r with(mmm, stat2text(list(estimate = estimate_bias, low = low_bias, high = high_bias)))`, indicating that neither warm nor cold models dominate. 
+Furthermore, there doens't appaer to be a strong relationship between bias and RMSE. 
+MIROC6 is an outlier in that regard, with very large error and negative bias.
 
 ```{r}
 #| label: area_obs
@@ -1570,7 +1593,7 @@ area_obs <- CDRv6() |>
 #| fig-width: 5
 #| fig-height: 7
 
-plot_rmse <- cmip_files[variable == "siconc"] |>
+plot_rmse_data <- cmip_files[variable == "siconc"] |>
   _[experiment == "historical"] |>
   # _[startsWith(model, "ACCESS-CM")] |>
   _[,
@@ -1583,7 +1606,11 @@ plot_rmse <- cmip_files[variable == "siconc"] |>
   _[, model := model_order(model)] |>
   _[area_obs, on = "month"] |>
   _[, rmse(aice, area / 100), by = model] |>
-  _[rmse_factor, on = "model"] |>
+  _[rmse_factor, on = "model"]
+
+var_rmse <- with(plot_rmse_data, cor(estimate, rmse)^2)
+
+plot_rmse <- plot_rmse_data |>
   ggplot(aes(rmse, estimate)) +
   geom_point() +
   geom_smooth(method = "lm") +
@@ -1592,10 +1619,10 @@ plot_rmse <- cmip_files[variable == "siconc"] |>
     "RMSE of sea ice area seasonal cycle",
     labels = labels_extent
   ) +
-  scale_x_continuous("RMSE of daice temperature")
+  scale_x_continuous("RMSE of CTS")
 
 
-plot_bias <- cmip_files[variable == "siconc"] |>
+plot_bias_data <- cmip_files[variable == "siconc"] |>
   _[experiment == "historical"] |>
   # _[startsWith(model, "ACCESS-CM")] |>
   _[,
@@ -1608,8 +1635,15 @@ plot_bias <- cmip_files[variable == "siconc"] |>
   _[, model := model_order(model)] |>
   _[area_obs, on = "month"] |>
   _[, .(area_bias = mean(area / 100 - aice)), by = model] |>
-  _[cmip_bias[experiment == "historical"], on = "model"] |>
+  _[cmip_bias[experiment == "historical"], on = "model"]
+
+var_bias <- with(plot_bias_data, cor(estimate, area_bias)^2)
+
+
+plot_bias <- plot_bias_data |>
   ggplot(aes(estimate, area_bias)) +
+  geom_hline(yintercept = 0, linetype = 2, colour = "gray50") +
+  geom_vline(xintercept = 0, linetype = 2, colour = "gray50") +
   geom_point() +
   geom_smooth(method = "lm") +
   ggrepel::geom_text_repel(aes(label = model), size = 3) +
@@ -1617,18 +1651,18 @@ plot_bias <- cmip_files[variable == "siconc"] |>
     "Bias of sea ice area seasonal cycle",
     labels = labels_extent
   ) +
-  scale_x_continuous("Bias of daice temperature")
+  scale_x_continuous("Bias of CTS")
 
 plot_rmse + plot_bias + plot_layout(ncol = 1)
 ```
 
-To test if errors in the temperature-ice relationship translate to errors in model representation of sea ice, @fig-cmip-errors compares these errors with errors in the representation of the seasonal cycle. 
-RMSE of the temperature-ice relationship is highly predictive of RMSE in the seasonal cycle. 
-Models where this relation is similar to observations simulate a seasonal cycle closer to the observed seasonal cycle. 
-Bias is less predictive than RMSE. 
-Even models with a freeze bias, like CESM2_WACCM or ACCESS-CM2, exhibit a negative sea ice area bias. 
-There is a trend for lower negative sea ice area bias in those models with freeze bias, but that relationship is weaker than the RMSE one. 
-
+To see how errors in the CTS translate to errors in model representation of sea ice, @fig-cmip-errors compares the RMSE and bias of CTS with the respective error measures in sea ice area seasonal cycle. 
+Erors in the CTS are highly predictive of errors in the seasonal cycle accross models with, about `r scales::percent(var_rmse, accuracy = 1)` of the variance in seasonal cycle error attributable to CTS error.
+On the other hand, CTS bias is less predictive of seasonal cycle bias.
+Only `r scales::percent(var_bias, acuracy = 1)` of bias variance is explaines by CTS bias and almost all models have a negative sea ice bias irregardless of the sign of the CTS bias. 
+From the spread in @fig-cmip-errors panel b, a model with unbiased CTS would still simulate sea ice with an area about 3$Mkm^2$ smaller than observations. 
+This can be used as an estimate of the effect of ocean and atmosphere errors on sea ice area. 
+Models with positive CTS biases, such as CESM2-WACCM or ACCESS-CM2, compensate for this error and produce less biased sea ice, but they seem to be doing to for the wrong reasons. 
 
 ## Conclusions
 
@@ -1650,9 +1684,10 @@ Comparing a CTS integration with the results of an ocean model forced with presc
 
 Some of the biases reproduced by the CTS equation are comparable to the biases in the ACCESS-S2 coupled model. 
 This suggests that, in the coupled model, they arise from issues in the processes omitted in the CTS. 
-More boradly, CMIP6 models, show various biases and errors, and they are highly predictive of their error in the seasonal cycle of sea ice area.
 Comparing CTS between models and observations allows to evaluate the model's sea ice response to forcing.
 It also permits to evaluate the model's variabiltiy without requiring the timing of the variabilty to match with observations. 
+CMIP6 model errors are well correlated with CTS errors, indicating that they arise primarily due to inacurate sea ice response and not due to inaccurante atmospheric conditions. 
+However, this is only applies to the seasonal cycle and not necessarily to trends. 
 Further study should look it's potential utility on constraining future projections. 
 
 While this estimation of the CTS was shown to be useful, there are several potential modifications to better represent and isolate the thermodynamic effects from other sources of variability.

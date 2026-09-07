@@ -224,14 +224,15 @@ rmse <- function(x, y) {
   return(out)
 }
 
-stat2text <- function(estimate, low, high, signif = 2, sep = "\ ") {
+
+stat2text <- function(stat, signif = 2, sep = "\ ") {
   paste0(
-    round(estimate, signif),
+    round(stat$estimate, signif),
     sep,
     "(CI:\ ",
-    round(low, signif),
+    round(stat$low, signif),
     "\ --\ ",
-    round(high, signif),
+    round(stat$high, signif),
     ")"
   )
 }
@@ -245,46 +246,46 @@ dir_part <- function(x, n = 0) {
 }
 
 
-lm_constrained <- function(data, formula) {
-  # Design matrix for polynomial fit (example: quadratic in t2m, linear in aice)
-  # formula <-
-  X <- stats::model.matrix(formula, data = data)
-  y <- data$daice
+# Dropped.
+# lm_constrained <- function(data, formula) {
+#   # Design matrix for polynomial fit (example: quadratic in t2m, linear in aice)
+#   # formula <-
+#   X <- stats::model.matrix(formula, data = data)
+#   y <- data$daice
 
-  # Quadratic programming setup
-  Dmat <- t(X) %*% X
-  dvec <- t(X) %*% y
+#   # Quadratic programming setup
+#   Dmat <- t(X) %*% X
+#   dvec <- t(X) %*% y
 
-  # Constraints:
-  # If aice = 0 -> daice >= 0
-  min_aice <- data$aice == min(data$aice)
-  A1 <- X[min_aice, , drop = FALSE]
-  b1 <- rep(0, nrow(A1))
+#   # Constraints:
+#   # If aice = 0 -> daice >= 0
+#   min_aice <- data$aice == min(data$aice)
+#   A1 <- X[min_aice, , drop = FALSE]
+#   b1 <- rep(0, nrow(A1))
 
-  # If aice = 1 -> daice <= 0
-  A2 <- -X[data$aice == 1, , drop = FALSE]
-  b2 <- rep(0, nrow(A2))
+#   # If aice = 1 -> daice <= 0
+#   A2 <- -X[data$aice == 1, , drop = FALSE]
+#   b2 <- rep(0, nrow(A2))
 
-  # negative values at high temp
-  A3 <- -X[data$t2m > -1 & !(min_aice), , drop = FALSE]
-  b3 <- rep(0, nrow(A3))
+#   # negative values at high temp
+#   A3 <- -X[data$t2m > -1 & !(min_aice), , drop = FALSE]
+#   b3 <- rep(0, nrow(A3))
 
-  # positive values at low temp
-  A4 <- X[data$t2m < -30 & !(data$aice == 1), , drop = FALSE]
-  b4 <- rep(0, nrow(A4))
+#   # positive values at low temp
+#   A4 <- X[data$t2m < -30 & !(data$aice == 1), , drop = FALSE]
+#   b4 <- rep(0, nrow(A4))
 
-  Amat <- t(rbind(A1, A2, A3, A4)) # constraints in quadprog form: t(Amat) %*% beta >= bvec
-  bvec <- c(b1, b2, b3, b4)
+#   Amat <- t(rbind(A1, A2, A3, A4)) # constraints in quadprog form: t(Amat) %*% beta >= bvec
+#   bvec <- c(b1, b2, b3, b4)
 
-  fit <- quadprog::solve.QP(Dmat, dvec, Amat, bvec)
+#   fit <- quadprog::solve.QP(Dmat, dvec, Amat, bvec)
 
-  # Create a normal lm fit and replace coefficients with the new
-  formula2 <- stats::as.formula(paste0("daice ~", as.character(formula)[2]))
-  mod <- stats::lm(formula2, data = data[1:100, ])
-  mod$coefficients <- fit$solution
-  mod
-}
-
+#   # Create a normal lm fit and replace coefficients with the new
+#   formula2 <- stats::as.formula(paste0("daice ~", as.character(formula)[2]))
+#   mod <- stats::lm(formula2, data = data[1:100, ])
+#   mod$coefficients <- fit$solution
+#   mod
+# }
 
 freezepoint <- function(S, P = 100) {
   a0 <- -0.0575

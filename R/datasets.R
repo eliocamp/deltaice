@@ -398,7 +398,7 @@ cmip_selantmerge <- function(files) {
       rcdo::cdo_sellonlatbox(0, 360, -90, -50)
   }) |>
     rcdo::cdo_mergetime() |>
-    rcdo::cdo_execute(options = "-L -O", out = out)
+    rcdo::cdo_execute(options = "-L -O", out = out, cache = TRUE)
 }
 
 cmip_complete <- function(data) {
