@@ -83,7 +83,14 @@ Furthermore, sea ice concentration is bounded, which means that even low or high
 This means that the state of the sea ice itself is an important factor that modulates the net effect of any air temperature forcing. 
 This state dependence implies that the relationship between air temperature and sea ice concentration cannot be linear. 
 
-Here I demonstrate this state dependence by defining a Concentration Tendency Surface as the mean change of sea ice concentration within a grid cell as a joint function of 2-metre air temperature and sea ice concentration. 
+Dynamically, sea ice is in constant motion, so advection and divergence of sea ice floes will affect sea ice concentration locally without thermodynamic melt or freeze [@holland2012].
+Ice processes such as sea ice floes crashing over each other and deforming will also change sea ice concentrations within a cell; reducing area but increasing thickness.
+These are important locally but do not affect the total sea ice area except through indirect feedbacks. 
+Thermodynamically, horizontal and vertical heat fluxes within the ocean will affect sea ice evolution. 
+These processes do affect total area and are deemed to be important, especially in the recent sea ice retreat [@purich2023]. 
+In this work, they will not be studied in order to isolate the atmospheric contribution specifically. 
+
+Here I define a Concentration Tendency Surface as the mean change of sea ice concentration within a grid cell as a joint function of 2-metre air temperature and sea ice concentration. 
 I derive a simple analytical expression for this Surface from first principles and then estimate it from observations. 
 Identifying regions of discrepancy provides intuition of the effect of the missing processes in this simple model. 
 I explore the validity of the Concentration Tendency Surface by integrating it forward using observed 2-metre temperature forcing. 
@@ -1653,18 +1660,6 @@ The bulk formula for heat transfer implied in @eq-model also depends on the magn
 The thermodynamic contribution to sea ice change potentially differs across sectors.
 An analysis of regional Concentration Tendency Surfaces might shed light on that. 
 Comparing events in which the Concentration Tendency Surface predicts sea ice tendencies well with conditions in which it mispredicts could also shed light on the ocean and atmospheric conditions in which thermodynamic effects dominate and conditions in which dynamics dominate. 
-
-
-
-Of course there are other variables at play. 
-Dynamically, sea ice is in constant motion, so advection and divergence of sea ice floes will affect sea ice concentration locally without thermodynamic melt or freeze. 
-Ice processes such as sea ice floes crashing over each other and deforming will also change sea ice concentrations within a cell; reducing area but increasing thickness.
-These are important locally but do not affect the total sea ice area except through indirect feedbacks. 
-Thermodynamically, horizontal and vertical heat fluxes within the ocean will affect sea ice evolution. 
-These processes do affect total area and are deemed to be important, especially in the recent sea ice retreat [@purich2023]. 
-In this work, they will not be studied in order to isolate the atmospheric contribution specifically. 
-\todo[]{This last section is important (especially to hedge against (justified) complains of missing processes, but I'm not sure where to put it)}
-
 
 
 ## Acknowledgments
