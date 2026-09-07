@@ -1635,11 +1635,13 @@ There is a trend for lower negative sea ice area bias in those models with freez
 In this paper I describe the monthly change in Antarctic sea ice concentrations as a function of 2-metre air temperature and sea ice concentration. 
 This defines a Concentration Tendency Surface (CTS) that attempts to encapsulate sea ice thermodynamic response to air temperature. 
 The high percentage of variance explained by the CTS (`r scales::percent(var_cond[, 1- var_cond/var])`%) suggests that this is a physically meaningful relationship and that sea ice response to air temperature accounts for a great deal of variability in sea ice. 
+Nevertheless, recognising events and regions where the CTS mispredicts sea ice evolution can also be valuable, as comparing them with events and regions where the CTS does well could shed light in the atmospheric and oceanic conditions in which dynamics effects dominate over the thermodynamics.
 
-Sea ice concentration evolution is highly dependent on the sea ice state itself, consistent with insulation and geometric effects predicted by a simple thermodynamic model. 
-These effects alone are not enough to explain the overall melting even at very low air temperatures when sea ice concentrations are high. 
-Of note, without this effect, the equilibrium sea ice concentration at low temperatures would be 100%, whereas this effect seems to impose an extra nonlinear effect that enables some open water even at very low temperatures.\todo{This sentence is a crime.}
-The physical mechanism is not clear.
+Sea ice concentration evolution depends strongly on the ice state itself, consistent with the insulation and geometric effects predicted by a simple thermodynamic model.
+However, these processes alone cannot account for the observed melting even at very low air temperatures when concentrations are high.
+Notably, without this phenomenon, equilibrium sea ice concentartion concentration at temperatures lower than the freezing point would be 100%.
+Instead, observations show that there is an additional nonlinear mechanism that can sustain some open water even at extremely cold conditions.
+It is not clear what this mechanism consists of. 
 Simple modelling suggests that ocean upwelling might be an explanation, but stochastic air temperature fluctuations at the daily level can also be playing a role. 
 
 The fact that forward integration of the CTS prognostic equation can reproduce not only a realistic seasonal cycle but also the variability and trends of pan-Antarctic sea ice area suggests that thermodynamic processes play a crucial role. 
@@ -1647,19 +1649,21 @@ A potential limitation is that observed 2-metre temperatures might be driven by 
 Comparing a CTS integration with the results of an ocean model forced with prescribed temperatures could be a useful next step to further clarify this point.
 
 Some of the biases reproduced by the CTS equation are comparable to the biases in the ACCESS-S2 coupled model. 
-This can mean that, in the coupled model, they arise from issues in the processes omitted in the CTS. 
-The strong association between errors in the CTS in CMIP6 models and their error in the seasonal cycle of sea ice area further supports the CTS as a compact method of model evaluation that can help distinguish between thermodynamic errors in the sea ice component from errors arising from other processes external to sea ice. 
+This suggests that, in the coupled model, they arise from issues in the processes omitted in the CTS. 
+More boradly, CMIP6 models, show various biases and errors, and they are highly predictive of their error in the seasonal cycle of sea ice area.
+Comparing CTS between models and observations allows to evaluate the model's sea ice response to forcing.
+It also permits to evaluate the model's variabiltiy without requiring the timing of the variabilty to match with observations. 
+Further study should look it's potential utility on constraining future projections. 
 
-
-** This comparison doesn't depend on the model simulating the timing of the variability ** 
-
-While this estimation of the CTS was shown to be useful, there are several potential modifications to better represent and isolate the thermodynamic effects. 
-In this work I estimated sea ice concentration tendency by simple difference between months, but this includes contributions of sea ice advection and divergence. 
-A cleaner division could be achieved by dividing the sea ice evolution into the dynamic and thermodynamic parts [@holland2012]. 
+While this estimation of the CTS was shown to be useful, there are several potential modifications to better represent and isolate the thermodynamic effects from other sources of variability.
+In this work I estimated sea ice concentration tendency by simple difference between months, but this conflates freezing and melting with contributions from sea ice advection and divergence. 
+A cleaner division could be achieved by dividing the sea ice evolution into the dynamic and thermodynamic parts [@holland2012] and then using only the latter. 
 The bulk formula for heat transfer implied in @eq-model also depends on the magnitude of the wind friction, but this is not included in the present analysis. 
-The thermodynamic contribution to sea ice change potentially differs across sectors.
-An analysis of regional Concentration Tendency Surfaces might shed light on that. 
-Comparing events in which the Concentration Tendency Surface predicts sea ice tendencies well with conditions in which it mispredicts could also shed light on the ocean and atmospheric conditions in which thermodynamic effects dominate and conditions in which dynamics dominate. 
+Taking wind into account would involve adding at third dimension to the diagnostic, making visual interpretation more difficult; further work is needed to determine if this is an acceptable trade-off. 
+Finally, analysing the CTS based on daily sea ice change could help better understand the role of submonthly fluctuations. 
+
+The prognostic ecuation derived from the CTS cannot be used to analyise critical transitons as it does not define a coupled system with feedbacks; it is only a template.
+However, further refinements that include the effect of sea ice albedo on air and ocean temperature and the effect of brine rejection and ice melt on salinity are needed. 
 
 
 ## Acknowledgments
