@@ -86,7 +86,7 @@ CDRv6 <- function() {
     version = 6,
   ) |>
     icecdr::cdr_fix() |>
-    rcdo::cdo_monmean() |>
+    rcdo::cdo_monavg() |>
     rcdo::cdo_setday(1) |>
     rcdo::cdo_settime("00:00:00") |>
     rcdo::cdo_execute(output = out)
