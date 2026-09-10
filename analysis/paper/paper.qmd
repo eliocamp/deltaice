@@ -45,7 +45,28 @@ header-includes:
 
 ## Abstract
 
-TODO
+
+In this work I estimate the typical monthly sea ice concentration tendency as a joint function of 2-metre air temperature and sea ice concentration itself, defining a Concentration Tendency Surface (CTS). 
+This simple thermodynamic model predicts that sea ice concentration melt is minimum at high concentrations due to the insulation effect of sea ice itself and at low concentrations because the lack of sea ice to melt. 
+It predicts maximum sea ice concentration growth at low concentrations, when the ocean surface is exposed to the cold air and there is available open water to freeze. 
+The CTS estimated from ERA5 and satellite observations follows these predictions and explains about half of the variance in sea ie concentration tendency.
+At high concentrations, however, sea ice melts even at temperatures well below the freezing point of ocean water.
+Either ocean processes or higher frequency fluctuations seem to be able to explain this phenomenon. 
+Forward integration of estimated CTS reproduce realistic seasonal cycle and interannual variability, including the decline in sea ice area after 2015. 
+CTS errors in CMIP6 models are strongly predictive of errors in errors in seasonal sea ice area. 
+The Concentration Tendency Surface therefore is a promising tool to evaluate models that is physically interpretable and can separate errors in ice thermodynamics from errors in atmospheric forcing. 
+
+
+
+Antarctic sea ice underwent an abrupt decline after 2015, highlighting the need to understand its response to atmospheric forcing.
+We define a Concentration Tendency Surface (CTS), the monthly tendency of sea ice concentration as a joint function of 2-m air temperature and sea ice concentration, to isolate this response. 
+A simple thermodynamic model predicts that sea ice growth is strongest at low concentrations, where open water enables heat loss and freezing, whereas melt is greatest at intermediate concentrations, where both ice and open water are available. 
+CTS estimated from satellite observations and ERA5 temperature data broadly follows these predictions and explains about half of the variance in monthly concentration changes. 
+However, observations show melt at high concentrations even when air temperatures are well below the ocean freezing point, implying an additional nonlinear process.
+Including an ice-state-dependent ocean heat flux or submonthly temperature variability partly reproduces this behaviour.
+Forward integration of both observed and theoretical CTSs forced by observed temperatures reproduces a realistic seasonal cycle and the observed interannual variability, including the post-2015 decline, of pan-Antarctic sea ice area.
+Across 17 CMIP6 models, CTS errors strongly predict errors in the sea ice area seasonal cycle.
+The CTS therefore provides a physically interpretable diagnostic for evaluating model sea ice thermodynamics and separating response errors from errors in atmospheric forcing.
 
 ## plain-language-summary
 
