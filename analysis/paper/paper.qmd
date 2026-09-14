@@ -1,48 +1,105 @@
 ---
-title: "State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation"
-format:
-    agu-pdf:
-        keep-tex: true
-        keep-md: true
-        cite-method: natbib
+title: State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation
+pdf-engine: pdflatex
+journal:
+  name: tc
 author:
-  - name: Elio Campitelli
-    affiliations:
-      - name: Monash University
-        department: School of Earth, Atmosphere and Environment
-        city: Kulin Nations, Clayton
-        region: Victoria
-        country: Australia
-      - name: ARC Special Research Initiative for Securing Antarctica’s Environmental Future
-        # department: School of Earth, Atmosphere and Environment
-        city: Kulin Nations, Clayton
-        region: Victoria
-        country: Australia
-    orcid: 0000-0002-7742-9230
+  - given_name: Elio 
+    surname: Campitelli
+    affiliation: "1, 2"
     email: elio.campitelli@monash.edu
+    corresponding: true
+            
+affiliation:
+  - code: 1
+    address: School of Earth, Atmosphere and Environment, Monash University, Kulin Nations, Clayton, Victoria, Australia. 
+  - code: 2
+    address: ARC Special Research Initiative for Securing Antarctica’s Environmental Future, Clayton, Kulin Nations, Victoria, Australia
+
+bibliography: bibliography.bib  
+running:
+  title: State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation
+  author: Campitelli et al.
+# This section is mandatory even if you declare that no competing interests are present.
+competinginterests: |
+  # Competing interests
+  The authors declare no competing interests.
+# See https://publications.copernicus.org/for_authors/licence_and_copyright.html, normally used for transferring the copyright, if needed. 
+# Note: additional copyright statements for affiliated software or data need to be placed in the data availability section. 
+# copyrightstatement: |
+#   The author's copyright for this publication is transferred to institution/company. 
+### The following commands are for the statements about the availability of data sets and/or software code corresponding to the manuscript.
+### It is strongly recommended to make use of these sections in case data sets and/or software code have been part of your research the article is based on.
+### Note: unless stated otherwise, software and data affiliated with the manuscript are assumed to be published under the same licence as the article (currently Creative Commons 4.0)
+availability:
+  #code: |
+  #  use this to add a statement when having only software code available
+  #data: |
+  #  use this to add a statement when having only data sets available
+  codedata: |
+    # Code/Data availability 
+    The underlying code for this study is available on GitHub: https://github.com/eliocamp/deltaice and will be made available in a Zenodo repository once accepted.
+
+    Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
+    ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels-monthly-means?tab=overview
+
+# authorcontribution: |
+#     # Author contributions    
+
+acknowledgements: |
+    # Acknowledgements
+
+    I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
+    I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
+
+    I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations
+
+    This research was undertaken with the assistance of resources from the National Computational Infrastructure (NCI Australia), an NCRIS enabled capability supported by the Australian Government.
+    This work was supported by ARC SRIEAS Grant SR200100005 Securing Antarctica’s Environmental Future.
+# appendix: |
+#   \section{Figures and tables in appendices}
+#   Regarding figures and tables in appendices, the following two options are possible depending on your general handling of figures and tables in the manuscript environment:
+#   \subsection{Option 1}
+#   If you sorted all figures and tables into the sections of the text, please also sort the appendix figures and appendix tables into the respective appendix sections.
+#   They will be correctly named automatically.
+#   \subsection{Option 2}
+#   If you put all figures after the reference list, please insert appendix tables and figures after the normal tables and figures.
+  
+#   To rename them correctly to A1, A2, etc., please add the following commands in front of them:
+#   `\appendixfigures` needs to be added in front of appendix figures
+#   `\appendixtables` needs to be added in front of appendix tables
+  
+#   Please add `\clearpage` between each table and/or figure.
+format: 
+  copernicus-pdf: 
+      keep-tex: true
+      keep-md: true
+      classoption: referee,lineno
+      fig-width: 6.5
+      fig-pos: "!htb"
+      fig-dpi: 300    
+      fig-format: png
+
+header-includes: |
+   \usepackage[colorinlistoftodos]{todonotes}
+   \usepackage[section]{placeins}
+   \usepackage[section]{placeins}
+   \AtBeginDocument{
+            \hypersetup{
+              colorlinks=false,
+              hidelinks
+            }
+   }
 
 keywords: [antarctic sea ice, model evaluation, CMIP6]
-key-points:
-  - Half of the variance of monthly sea ice chance can be estimated from air temperature and sea ice state.
-  - Integrating this relationship simulates a realistic seasonal cycle and interannual variability and trends. 
-  - Errors in this thermodynamic relationship strongly predict CMIP6 sea ice errors and biases, with potential for model evaluation.
-bibliography: bibliography.bib  
-citation:
-  container-title: Geophysical Research Letters
-keep-tex: true
-keep-md: true
-date: last-modified
+
+# filters:
+#   - _extensions/pandoc-ext/abstract-section/abstract-section.lua  
 filters:
   - abstract-section
-abstract-section:
-  section-identifiers:
-    - abstract
-    - plain-language-summary  
 
-header-includes: 
-  - \usepackage[colorinlistoftodos]{todonotes}
-  - \usepackage[section]{placeins}
 ---
+
 
 ## Abstract
 
@@ -56,6 +113,7 @@ Forward integration of the estimated CTS reproduces a realistic seasonal cycle a
 CTS errors in CMIP6 models are strongly predictive of errors in seasonal sea ice area.
 The Concentration Tendency Surface is therefore a promising, physically interpretable tool to evaluate models and can separate errors in ice thermodynamics from errors in atmospheric
 
+<!-- 
 ## plain-language-summary
 
 At the most basic level, Antarctic sea ice freezes and melts as the surface of the ocean loses and gains heat to the atmosphere. 
@@ -65,9 +123,10 @@ This predicts that when air temperature is lower than the freezing point of ocea
 Observations show that this is broadly true but that air temperature needs to be substantially lower than freezing in order for sea ice concentration to increase. 
 This simple model explains about half of the variability of sea ice concentrations and can simulate a realistic seasonal cycle of Antarctic sea ice area and its yearly fluctuations. 
 Applying the same methodology to climate models shows that this can be a useful framework for model evaluation, as errors in the relationship between sea ice concentration change and air temperature predict errors in the representation of sea ice. 
+-->
 
 
-## Introduction
+# Introduction
 
 Antarctic sea ice area experienced a gradual increase from 1979 onwards until a sudden collapse in 2015 (@turner2017) followed with record-low anomalies thereafter.
 As well as a dramatic shift to a low mean, there is evidence that other properties of the sea ice system have also changed [@purich2023; @raphael2025], suggesting that sea ice might have experienced an abrupt critical transition [@hobbs2024] with the potential of being irreversible in human timescales.
@@ -171,6 +230,49 @@ knitr::opts_hooks$set(fig.cap = function(options) {
 ```
 
 ```{r}
+#| label: rename_fig
+# Publisher asked for figures to be renamed "fig1.png", etc..
+knitr::opts_hooks$set(label = function(options) {
+  this_label <- knitr::opts_current$get("label")
+
+  if (!startsWith(this_label, "fig")) {
+    return(options)
+  }
+  main_n <- 13
+  all_chunks <- knitr::all_labels(startsWith(label, "fig"))
+
+  fig_num <- which(all_chunks == this_label)
+
+  if (fig_num > main_n) {
+    suffix <- paste0("figA", fig_num - main_n)
+  } else {
+    suffix <- paste0("fig", fig_num)
+  }
+
+  new_path <- paste0(options$fig.path, suffix, "_")
+
+  options$fig.path <- new_path
+  return(options)
+})
+
+rename_fig <- function(fig_path) {
+  filename <- basename(fig_path)
+
+  suffix <- strsplit(filename, "_")[[1]][1]
+  ext <- tools::file_ext(fig_path)
+
+  filename2 <- paste0(suffix, ".", ext)
+  fig_path2 <- file.path(dirname(fig_path), filename2)
+  file.rename(fig_path, fig_path2)
+
+  return(fig_path2)
+}
+
+knitr::opts_chunk$set(fig.process = rename_fig)
+```
+
+
+```{r}
 #| label: topo
 topo <- cdo_topo(grid = "r720x360") |>
   cdo_remapmean(grid = "r360x180") |>
@@ -208,7 +310,7 @@ set_labels <- function(data) {
 daice <- daice_read()
 ```
 
-## Data and Methods
+# Data and Methods
 
 I use Antarctic sea ice concentration from NOAA/NSIDC's Climate Data Record V4 [CDR; @meier2014].
 This dataset takes the maximum value of the NASA Team [@cavalieri1984] and NASA Bootstrap [@comiso2023] sea ice concentration products to reduce their low concentration bias [@meier2014; @meier2021].
@@ -258,9 +360,9 @@ Sea ice models were written in C++ for speed and integrated in R using the Rcpp 
 All graphics are made using ggplot2 [@wickham2009].
 The paper was rendered using knitr and Quarto [@xie2015; @allaire2022].
 
-## Results
+# Results
 
-### Theoretical model of sea ice concentration change
+## Theoretical model of sea ice concentration change
 
 I start with a simplified model of sea ice growth and melt.
 In this model, each cell has an area of water and an area covered with ice.
@@ -1042,8 +1144,6 @@ However, observations show that the monthly standard deviation of daily air temp
 I simulate the effect of sub-monthly variations by running @eq-model `r stochastic_samples` times for each monthly mean 2-metre temperature and monthly mean sea ice concentration value including a random perturbation to temperature from a normal distribution with mean zero and standard deviation taken from observations.
 Random sub-monthly temperature fluctuations approximate $T_f$ well, but they underestimate sea ice growth at low sea ice concentrations (@fig-aice-lines e and @fig-daice-monthly e).
 
-## Using the Concentration Tendency Surface to predict sea ice
-
 ```{r}
 #| label: start
 mask <- daice[, mean(is.na(aice)), by = .(x, y)][V1 < 1][, V1 := NULL]
@@ -1424,7 +1524,7 @@ While the CTS-based models perform well in terms of correlation and Pan-Antarcti
 Lower variability is not unexpected since the Concentration Tendency Surface omits many sources of variability such as advection, divergence, thickness redistribution, and ocean processes.
 This lack of variability in sea ice concentration does not translate to lower variability in sea ice area, indicating that regional anomalies largely compensate each other when aggregated.
 
-## Concentration Tendency Surface in CMIP6 models
+# Concentration Tendency Surface in CMIP6 models
 
 The observed Concentration Tendency Surface is an emergent property of thermodynamic processes and interactions between sea ice and the atmosphere.
 To the extent that climate models represent these correctly, they should simulate a CTS similar to the observed one, thus motivating the use of CTS as a model evaluation framework.
@@ -1678,7 +1778,7 @@ Only `r scales::percent(var_bias, accuracy = 1)` of bias variance is explained b
 From the spread in @fig-cmip-errors panel b, a model with zero CTS bias would still simulate sea ice with an area about 3$Mkm^2$ smaller than observations.
 Models with positive CTS bias, such as CESM2-WACCM or ACCESS-CM2, compensate for this error and produce less biased sea ice, but they seem to be doing so for the wrong reasons.
 
-## Conclusions
+# Conclusions
 
 In this paper I describe the monthly change in Antarctic sea ice concentration as a function of 2-metre air temperature and sea ice concentration.
 This defines a Concentration Tendency Surface (CTS) that attempts to encapsulate sea ice thermodynamic response to air temperature.
@@ -1719,19 +1819,7 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 
 \FloatBarrier
 
-## Acknowledgments
-
-I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
-I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
-
-I thank Caroline Holmes for the idea of the stochastic addition.
-
-## Open research
-
-Code available in this Zenodo deposit: XXXX 
-Data from ERA5, etc... 
-
-## References {.unnumbered}
+# References {.unnumbered}
 
 ::: {#refs}
 :::
@@ -1740,9 +1828,10 @@ Data from ERA5, etc...
 
 \FloatBarrier
 
-## Supplementary figures {.appendix}
 
-\appendix
+# Supplementary figures {.appendix}
+
+\appendixfigures
 
 ```{r}
 #| label: fig-t2m_sd
