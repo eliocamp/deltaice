@@ -231,6 +231,7 @@ knitr::opts_hooks$set(fig.cap = function(options) {
 
 ```{r}
 #| label: rename_fig
+#| cache: false
 # Publisher asked for figures to be renamed "fig1.png", etc..
 knitr::opts_hooks$set(label = function(options) {
   this_label <- knitr::opts_current$get("label")
@@ -238,7 +239,7 @@ knitr::opts_hooks$set(label = function(options) {
   if (!startsWith(this_label, "fig")) {
     return(options)
   }
-  main_n <- 13
+  main_n <- 12
   all_chunks <- knitr::all_labels(startsWith(label, "fig"))
 
   fig_num <- which(all_chunks == this_label)

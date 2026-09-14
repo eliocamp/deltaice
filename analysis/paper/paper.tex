@@ -4,8 +4,7 @@
 \PassOptionsToPackage{hyphens}{url}
 \PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
 %
-\documentclass[
-]{agujournal2019}
+\documentclass[tc, manuscript]{copernicus}
 \usepackage{xcolor}
 \usepackage{amsmath,amssymb}
 \setcounter{secnumdepth}{5}
@@ -101,18 +100,18 @@
 
 
 
- 
-\usepackage[]{natbib}
-\bibliographystyle{plainnat}
 
 
-\usepackage{url} %this package should fix any errors with URLs in refs.
-\usepackage{lineno}
-\usepackage[inline]{trackchanges} %for better track changes. finalnew option will compile document with changes incorporated.
-\usepackage{soul}
-\linenumbers
+\usepackage[inline]{trackchanges}
 \usepackage[colorinlistoftodos]{todonotes}
 \usepackage[section]{placeins}
+\usepackage[section]{placeins}
+\AtBeginDocument{
+         \hypersetup{
+           colorlinks=false,
+           hidelinks
+         }
+}
 \makeatletter
 \@ifpackageloaded{caption}{}{\usepackage{caption}}
 \AtBeginDocument{%
@@ -159,41 +158,50 @@
 \urlstyle{same}
 \hypersetup{
   pdftitle={State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation},
-  pdfauthor={Elio Campitelli},
   pdfkeywords={antarctic sea ice, model evaluation, CMIP6},
   colorlinks=true,
   linkcolor={blue},
   filecolor={Maroon},
   citecolor={Blue},
-  urlcolor={Blue},
+  urlcolor={red},
   pdfcreator={LaTeX via pandoc}}
 
 
-\journalname{Geophysical Research Letters}
 
-\draftfalse
-
-\begin{document}
 \title{State-Dependent Response of Antarctic Sea Ice Concentration to
 Air Temperature and Its Application to Climate Model Evaluation}
 
-\authors{Elio Campitelli\affil{1,2}}
-\affiliation{1}{School of Earth, Atmosphere and Environment, Monash
-University, Kulin Nations,
-Clayton, Victoria, Australia}\affiliation{2}{ARC Special Research
-Initiative for Securing Antarctica's Environmental Future, Kulin
-Nations, Clayton, Victoria, Australia}
+\Author[1, 2]{Elio}{Campitelli}
 
 
-\begin{keypoints}
-\item Half of the variance of monthly sea ice chance can be estimated
-from air temperature and sea ice state. \item Integrating this
-relationship simulates a realistic seasonal cycle and interannual
-variability and trends. \item Errors in this thermodynamic relationship
-strongly predict CMIP6 sea ice errors and biases, with potential for
-model evaluation. 
-\end{keypoints}
+\affil[1]{School of Earth, Atmosphere and Environment, Monash
+University, Kulin Nations, Clayton, Victoria, Australia.}
+\affil[2]{ARC Special Research Initiative for Securing Antarctica's
+Environmental Future, Clayton, Kulin Nations, Victoria, Australia}
 
+\runningtitle{State-Dependent Response of Antarctic Sea Ice
+Concentration to Air Temperature and Its Application to Climate Model
+Evaluation}
+
+\runningauthor{Campitelli et al.}
+
+
+\correspondence{Elio\ Campitelli\ (elio.campitelli@monash.edu)}
+
+
+\begin{document}
+
+\received{}
+\pubdiscuss{} %% only important for two-stage journals
+\revised{}
+\accepted{}
+\published{}
+
+%% These dates will be inserted by Copernicus Publications during the typesetting process.
+
+
+\firstpage{1}
+\maketitle
 \begin{abstract}
 The typical monthly sea ice concentration tendency as a joint function
 of 2-metre air temperature and sea ice concentration itself defines a
@@ -216,28 +224,6 @@ Concentration Tendency Surface is therefore a promising, physically
 interpretable tool to evaluate models and can separate errors in ice
 thermodynamics from errors in atmospheric
 \end{abstract}
-
-\section*{Plain Language Summary}
-At the most basic level, Antarctic sea ice freezes and melts as the
-surface of the ocean loses and gains heat to the atmosphere. Sea ice
-itself affects this process by forming an insulating layer that
-suppresses this energy exchange. Growth of sea ice also requires open
-water to freeze, and shrinking of sea ice requires sea ice coverage to
-melt. This predicts that when air temperature is lower than the freezing
-point of ocean water, sea ice concentrations are going to grow the
-fastest when they are low, and that at higher temperatures, sea ice
-retreat is maximum at about 50\% sea ice concentrations. Observations
-show that this is broadly true but that air temperature needs to be
-substantially lower than freezing in order for sea ice concentration to
-increase. This simple model explains about half of the variability of
-sea ice concentrations and can simulate a realistic seasonal cycle of
-Antarctic sea ice area and its yearly fluctuations. Applying the same
-methodology to climate models shows that this can be a useful framework
-for model evaluation, as errors in the relationship between sea ice
-concentration change and air temperature predict errors in the
-representation of sea ice.
-
-
 
 
 \section{Introduction}\label{introduction}
@@ -387,7 +373,7 @@ CESM2-WACCM, CMCC-CM2-SR5, CMCC-ESM2, FGOALS-g3, FIO-ESM-2-0, MIROC6,
 MPI-ESM1-2-HR, MPI-ESM1-2-LR, MRI-ESM2-0, NESM3, NorESM2-LM, NorESM2-MM,
 and TaiESM1.
 
-\section{Computational procedures}\label{computational-procedures}
+\subsection{Computational procedures}\label{computational-procedures}
 
 I performed all analyses in this paper using the R programming language
 \citep{rcoreteam2020}, using data.table \citep{barrett2006} and metR
@@ -475,11 +461,11 @@ concentration tendency as a function of air temperature and sea ice
 concentration. For conciseness, I will refer to this relationship as the
 Concentration Tendency Surface (CTS).
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/001_fig-theory-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig1.png}}
 
 }
 
@@ -505,13 +491,13 @@ atmosphere. Maximum melt is at around 60\% sea ice concentrations, when
 there is enough ice to melt and enough ice-free ocean for the ocean to
 exchange heat.
 
-\section{Observations}\label{observations}
+\subsection{Observations}\label{observations}
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/002_fig-grid-sd-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig2.png}}
 
 }
 
@@ -545,11 +531,11 @@ and sea ice concentration below 0.75. This suggests that ice dynamics
 and ocean processes are particularly important at these intermediate
 temperatures.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/003_fig-aice-lines-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig3.png}}
 
 }
 
@@ -582,11 +568,11 @@ but it is also important to note that satellite observations are
 increasingly uncertain below \textasciitilde15\%. Second, at high
 concentrations sea ice actually melts even at low temperatures.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/004_fig-daice-monthly-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig4.png}}
 
 }
 
@@ -707,9 +693,6 @@ temperature fluctuations approximate \(T_f\) well, but they
 underestimate sea ice growth at low sea ice concentrations
 (Figure~\ref{fig-aice-lines} e and Figure~\ref{fig-daice-monthly} e).
 
-\section{Using the Concentration Tendency Surface to predict sea
-ice}\label{using-the-concentration-tendency-surface-to-predict-sea-ice}
-
 Since the Concentration Tendency Surface defines a prognostic equation
 of sea ice concentration, it can be integrated forward in time using
 temperature fields as forcing. This can help to indicate what aspects
@@ -732,11 +715,11 @@ I use sea ice concentration forecasts with a 1-month lead time by
 ACCESS-S2 \citep{wedd2022}, the Bureau of Meteorology Subseasonal to
 Seasonal prediction model.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/005_fig-seasonal-cycle-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig5.png}}
 
 }
 
@@ -765,11 +748,11 @@ temperatures are still far below freezing, whereas
 Equation~\ref{eq-model} requires temperatures above -3°C to initiate the
 melt season.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/006_fig-bias-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig6.png}}
 
 }
 
@@ -797,11 +780,11 @@ effect of compacting sea ice. On the other hand, Equation~\ref{eq-model}
 has smaller biases, with more sea ice than observations in the Indian
 sector and less in the east of the Weddell Gyre.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/007_fig-area-anomalies-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig7.png}}
 
 }
 
@@ -829,11 +812,11 @@ ACCESS-S2 system does not assimilate sea ice concentration observations
 but does assimilate temperature data \citep{campitelli2026}, making it a
 relatively fair comparison.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/008_fig-spatial-cor-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig8.png}}
 
 }
 
@@ -852,11 +835,11 @@ correlations are near zero in the core of the ice pack. This is likely
 related to the low variance of sea ice concentrations in that region,
 where it is almost 100\% every September Fig.~\ref{fig-sd}.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/009_fig-sd-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig9.png}}
 
 }
 
@@ -888,11 +871,11 @@ atmosphere. To the extent that climate models represent these correctly,
 they should simulate a CTS similar to the observed one, thus motivating
 the use of CTS as a model evaluation framework.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/010_fig-cmip-historical-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig10.png}}
 
 }
 
@@ -922,11 +905,11 @@ differ substantially between early in historical simulations
 (Fig.~\ref{fig-cmip-historical_new}) or SSP5-8.5 scenario
 (Fig.~\ref{fig-cmip-ssp585}).
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/011_fig-rmse-bias-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig11.png}}
 
 }
 
@@ -953,11 +936,11 @@ neither warm nor cold models dominate. Furthermore, there does not
 appear to be a strong relationship between bias and RMSE. MIROC6 is an
 outlier in that regard, with very large error and negative bias.
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/012_fig-cmip-errors-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig12.png}}
 
 }
 
@@ -1067,21 +1050,6 @@ that goal.
 
 \FloatBarrier
 
-\section{Acknowledgments}\label{acknowledgments}
-
-I acknowledge the World Climate Research Programme, which, through its
-Working Group on Coupled Modelling, coordinated and promoted CMIP6. I
-thank the climate modeling groups for producing and making available
-their model output, the Earth System Grid Federation (ESGF) for
-archiving the data and providing access, and the multiple funding
-agencies who support CMIP6 and ESGF.
-
-I thank Caroline Holmes for the idea of the stochastic addition.
-
-\section{Open research}\label{open-research}
-
-Code available in this Zenodo deposit: XXXX Data from ERA5, etc\ldots{}
-
 \section*{References}\label{references}
 \addcontentsline{toc}{section}{References}
 
@@ -1094,13 +1062,13 @@ Code available in this Zenodo deposit: XXXX Data from ERA5, etc\ldots{}
 
 \section{Supplementary figures}\label{supplementary-figures}
 
-\appendix
+\appendixfigures
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/013_fig-t2m_sd-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig13.png}}
 
 }
 
@@ -1110,11 +1078,11 @@ sea ice concentration.}
 
 \end{figure}%
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/014_fig-daice-monthly-sst-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA1.png}}
 
 }
 
@@ -1124,11 +1092,11 @@ temperature and SST.}
 
 \end{figure}%
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/015_fig-cmip-historical_old-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA2.png}}
 
 }
 
@@ -1137,11 +1105,11 @@ Figure~\ref{fig-cmip-historical} but for the period 1850--1983.}
 
 \end{figure}%
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/016_fig-cmip-historical_new-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA3.png}}
 
 }
 
@@ -1150,11 +1118,11 @@ Figure~\ref{fig-cmip-historical} but for the period 1983--2014.}
 
 \end{figure}%
 
-\begin{figure}
+\begin{figure}[!htb]
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/017_fig-cmip-ssp585-1.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA4.png}}
 
 }
 
@@ -1165,6 +1133,57 @@ but for the SSP585 scenario}
 
 
 
+\codedataavailability{\section{Code/Data
+availability}\label{codedata-availability}
 
+The underlying code for this study is available on GitHub:
+https://github.com/eliocamp/deltaice and will be made available in a
+Zenodo repository once accepted.
+
+Sea ice data available via the CoastWatch ERDDAP:
+https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
+ERA5 data is available via Copernicus Climate Data Store:
+https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels-monthly-means?tab=overview} %% use this section when having data sets and software code available
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% optional
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\competinginterests{\section{Competing
+interests}\label{competing-interests}
+
+The authors declare no competing
+interests.} %% this section is mandatory even if you declare that no competing interests are present
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{acknowledgements}
+\section{Acknowledgements}\label{acknowledgements}
+
+I acknowledge the World Climate Research Programme, which, through its
+Working Group on Coupled Modelling, coordinated and promoted CMIP6. I
+thank the climate modeling groups for producing and making available
+their model output, the Earth System Grid Federation (ESGF) for
+archiving the data and providing access, and the multiple funding
+agencies who support CMIP6 and ESGF.
+
+I thank Caroline Holmes for proposing analysing stochastic submonthly
+fluctuations
+
+This research was undertaken with the assistance of resources from the
+National Computational Infrastructure (NCI Australia), an NCRIS enabled
+capability supported by the Australian Government. This work was
+supported by ARC SRIEAS Grant SR200100005 Securing Antarctica's
+Environmental Future.
+\end{acknowledgements}
+
+\bibliographystyle{copernicus}
 
 \end{document}
