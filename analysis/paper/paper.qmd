@@ -116,14 +116,14 @@ The Concentration Tendency Surface is therefore a promising, physically interpre
 <!-- 
 ## plain-language-summary
 
-At the most basic level, Antarctic sea ice freezes and melts as the surface of the ocean loses and gains heat to the atmosphere. 
-Sea ice itself affects this process by forming an insulating layer that suppresses this energy exchange. 
-Growth of sea ice also requires open water to freeze, and shrinking of sea ice requires sea ice coverage to melt. 
-This predicts that when air temperature is lower than the freezing point of ocean water, sea ice concentrations are going to grow the fastest when they are low, and that at higher temperatures, sea ice retreat is maximum at about 50% sea ice concentrations. 
-Observations show that this is broadly true but that air temperature needs to be substantially lower than freezing in order for sea ice concentration to increase. 
-This simple model explains about half of the variability of sea ice concentrations and can simulate a realistic seasonal cycle of Antarctic sea ice area and its yearly fluctuations. 
-Applying the same methodology to climate models shows that this can be a useful framework for model evaluation, as errors in the relationship between sea ice concentration change and air temperature predict errors in the representation of sea ice. 
+Short summary (500 char)
+
+Half of the variability in monthly sea ice concentration change can be explained by the joint effect of near-surface air temperature and the insulation of sea ice. 
+This relationship highlights that high sea ice concentration tend to decreases even at temperatures well below freezing. 
+Climate models that simulate this relationship well tend to simulate a better sea ice seasonal cycle, suggesting that model error is due to errors in the sea ice model rather than the air temperature forcing it.
 -->
+
+
 
 
 # Introduction
