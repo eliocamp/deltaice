@@ -38,12 +38,15 @@ availability:
   #  use this to add a statement when having only data sets available
   codedata: |
     # Code/Data availability 
+
     The underlying code for this study is available on GitHub: https://github.com/eliocamp/deltaice and will be made available in a Zenodo repository once accepted.
 
     Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
     ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels-monthly-means?tab=overview
 
 authorcontribution: |
+    # Author Contributions
+
     EC designed the study, performed data analysis, interpretation of the results and wrote the manuscript. 
  
 acknowledgements: |
@@ -355,7 +358,7 @@ The 17 models analysed are: `r cmip_files$model |> unique() |> sort() |> knitr::
 
 ## Computational procedures
 
-I performed all analyses in this paper using the R programming language [@rcoreteam2020], using data.table [@barrett2006] and metR [@campitelli2018c] packages.
+I performed all analyses in this paper using the R programming language [@rcoreteam2000], using data.table [@barrett2006] and metR [@campitelli2018c] packages.
 Significant processing was performed using the CDO command line operators [@schulzweida2023] via the rcdo R package [@campitelli2025b].
 Sea ice models were written in C++ for speed and integrated in R using the Rcpp package [@eddelbuettel2008].
 All graphics are made using ggplot2 [@wickham2009].
