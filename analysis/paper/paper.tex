@@ -383,7 +383,7 @@ rcdo R package \citep{campitelli2025b}. Sea ice models were written in
 C++ for speed and integrated in R using the Rcpp package
 \citep{eddelbuettel2008}. All graphics are made using ggplot2
 \citep{wickham2009}. The paper was rendered using knitr and Quarto
-\citep{xie2015, allaire2022}.
+\citep{xie2017, allaire2022}.
 
 \section{Results}\label{results}
 
@@ -1050,33 +1050,11 @@ that goal.
 
 \FloatBarrier
 
-\section*{References}\label{references}
-\addcontentsline{toc}{section}{References}
-
-\renewcommand{\bibsection}{}
-\bibliography{bibliography.bib}
-
 \clearpage
 
-\FloatBarrier
-
-\section{Supplementary figures}\label{supplementary-figures}
+\section{Appendix A}\label{appendix-a}
 
 \appendixfigures
-
-\begin{figure}[!htb]
-
-\centering{
-
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/fig13.png}}
-
-}
-
-\caption{\label{fig-t2m_sd}Mean monthly standard deviation of daily
-temperature as a function of monthly mean temperature and monthly mean
-sea ice concentration.}
-
-\end{figure}%
 
 \begin{figure}[!htb]
 
@@ -1100,6 +1078,20 @@ temperature and SST.}
 
 }
 
+\caption{\label{fig-t2m_sd}Mean monthly standard deviation of daily
+temperature as a function of monthly mean temperature and monthly mean
+sea ice concentration.}
+
+\end{figure}%
+
+\begin{figure}[!htb]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA3.png}}
+
+}
+
 \caption{\label{fig-cmip-historical_old}Same as
 Figure~\ref{fig-cmip-historical} but for the period 1850--1983.}
 
@@ -1109,7 +1101,7 @@ Figure~\ref{fig-cmip-historical} but for the period 1850--1983.}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA3.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA4.png}}
 
 }
 
@@ -1122,7 +1114,7 @@ Figure~\ref{fig-cmip-historical} but for the period 1983--2014.}
 
 \centering{
 
-\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA4.png}}
+\pandocbounded{\includegraphics[keepaspectratio]{paper_files/figure-pdf/figA5.png}}
 
 }
 
@@ -1153,6 +1145,9 @@ https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels-month
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\authorcontribution{EC designed the study, performed data analysis,
+interpretation of the results and wrote the
+manuscript.} %% optional section
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \competinginterests{\section{Competing
@@ -1174,8 +1169,10 @@ their model output, the Earth System Grid Federation (ESGF) for
 archiving the data and providing access, and the multiple funding
 agencies who support CMIP6 and ESGF.
 
-I thank Caroline Holmes for proposing analysing stochastic submonthly
-fluctuations
+I thank Julie Arblaster, Mathew Wheeler, Eun-Pa Lim, Phillip Reid, and
+Ariaan Purich for their comments and ideas in the early stages of this
+work. I thank Caroline Holmes for proposing analysing stochastic
+submonthly fluctuations.
 
 This research was undertaken with the assistance of resources from the
 National Computational Infrastructure (NCI Australia), an NCRIS enabled
@@ -1185,5 +1182,6 @@ Environmental Future.
 \end{acknowledgements}
 
 \bibliographystyle{copernicus}
+\bibliography{bibliography.bib}
 
 \end{document}

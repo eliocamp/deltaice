@@ -43,16 +43,16 @@ availability:
     Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
     ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels-monthly-means?tab=overview
 
-# authorcontribution: |
-#     # Author contributions    
-
+authorcontribution: |
+    EC designed the study, performed data analysis, interpretation of the results and wrote the manuscript. 
+ 
 acknowledgements: |
     # Acknowledgements
 
     I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
     I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
 
-    I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations
+    I thank Julie Arblaster, Mathew Wheeler, Eun-Pa Lim, Phillip Reid, and Ariaan Purich for their comments and ideas in the early stages of this work. I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations.
 
     This research was undertaken with the assistance of resources from the National Computational Infrastructure (NCI Australia), an NCRIS enabled capability supported by the Australian Government.
     This work was supported by ARC SRIEAS Grant SR200100005 Securing Antarctica’s Environmental Future.
@@ -359,7 +359,7 @@ I performed all analyses in this paper using the R programming language [@rcoret
 Significant processing was performed using the CDO command line operators [@schulzweida2023] via the rcdo R package [@campitelli2025b].
 Sea ice models were written in C++ for speed and integrated in R using the Rcpp package [@eddelbuettel2008].
 All graphics are made using ggplot2 [@wickham2009].
-The paper was rendered using knitr and Quarto [@xie2015; @allaire2022].
+The paper was rendered using knitr and Quarto [@xie2017; @allaire2022].
 
 # Results
 
@@ -1347,8 +1347,8 @@ lonlat_lines <- with_args(
 ```{r}
 #| label: fig-bias
 #| fig-cap: February and September sea ice concentration bias for simulations using forward integration of the observed CTS (panel a), @eq-model (panel b) and ACCESS-S2 (panel c).
-#| fig-width: 5
-#| fig-height: 8
+#| fig-width: 4.5
+#| fig-height: 7
 sims |>
   _[, .(file = cdo_ymonmean(file)[]), by = model] |>
   _[, base := file[model == "daice"]] |>
@@ -1455,8 +1455,8 @@ cors <- sims |>
 ```{r}
 #| label: fig-spatial-cor
 #| fig-cap: Correlation between simulated and observed monthly mean sea ice concentration in February and September for simulations using forward integration of the observed CTS (panel a), @eq-model (panel b) and ACCESS-S2 (panel c).
-#| fig-width: 5
-#| fig-height: 8
+#| fig-width: 4.5
+#| fig-height: 7
 
 cors |>
   _[month %in% c(2, 9)] |>
@@ -1491,8 +1491,8 @@ This is likely related to the low variance of sea ice concentrations in that reg
 ```{r}
 #| label: fig-sd
 #| fig-cap: February and September interannual monthly standard deviation of monthly mean sea ice concentration for observations (panel a) and simulations using forward integration of the observed CTS (panel b), @eq-model (panel c) and ACCESS-S2 (panel d).
-#| fig-width: 5
-#| fig-height: 9
+#| fig-width: 4.5
+#| fig-height: 7
 
 sims |>
   _[,
@@ -1820,39 +1820,13 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 
 \FloatBarrier
 
-# References {.unnumbered}
-
-::: {#refs}
-:::
-
 \clearpage
 
-\FloatBarrier
 
-
-# Supplementary figures {.appendix}
+# Appendix A {.appendix}
 
 \appendixfigures
 
-```{r}
-#| label: fig-t2m_sd
-#| fig-cap: Mean monthly standard deviation of daily temperature as a function of monthly mean temperature and monthly mean sea ice concentration.
-#| fig-height: 4
-#| fig-width: 4
-t2m_grid |>
-  ggplot(aes(aice, t2m)) +
-  geom_contour_fill(aes(z = t2m_sd, fill = ..level..)) +
-  scale_y_continuous(
-    "Monthly mean 2-m temperature (°C)",
-    limits = c(-15, 1),
-    expand = c(0, 0)
-  ) +
-  scale_x_continuous("Monthly mean sea ice concentration", expand = c(0, 0)) +
-  as.discretised_scale(scale_fill_viridis_c)(
-    "Mean monthly standard deviation 2-m temperature (°C)"
-  ) +
-  wide_legend
-```
 
 ```{r}
 #| label: fig-daice-monthly-sst
@@ -1879,6 +1853,27 @@ plot_daice_monthly2 +
     ]) +
   labs(y = "Difference between\n2-metre temperature and SST (°C)") +
   facet_null()
+```
+
+
+```{r}
+#| label: fig-t2m_sd
+#| fig-cap: Mean monthly standard deviation of daily temperature as a function of monthly mean temperature and monthly mean sea ice concentration.
+#| fig-height: 4
+#| fig-width: 4
+t2m_grid |>
+  ggplot(aes(aice, t2m)) +
+  geom_contour_fill(aes(z = t2m_sd, fill = ..level..)) +
+  scale_y_continuous(
+    "Monthly mean 2-m temperature (°C)",
+    limits = c(-15, 1),
+    expand = c(0, 0)
+  ) +
+  scale_x_continuous("Monthly mean sea ice concentration", expand = c(0, 0)) +
+  as.discretised_scale(scale_fill_viridis_c)(
+    "Mean monthly standard deviation 2-m temperature (°C)"
+  ) +
+  wide_legend
 ```
 
 ```{r}
@@ -1975,3 +1970,5 @@ plot_daice_monthly2 +
   ) +
   facet_wrap(~model, ncol = 4)
 ```
+
+

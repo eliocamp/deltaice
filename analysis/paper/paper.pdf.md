@@ -43,16 +43,16 @@ availability:
     Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
     ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-pressure-levels-monthly-means?tab=overview
 
-# authorcontribution: |
-#     # Author contributions    
-
+authorcontribution: |
+    EC designed the study, performed data analysis, interpretation of the results and wrote the manuscript. 
+ 
 acknowledgements: |
     # Acknowledgements
 
     I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
     I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
 
-    I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations
+    I thank Julie Arblaster, Mathew Wheeler, Eun-Pa Lim, Phillip Reid, and Ariaan Purich for their comments and ideas in the early stages of this work. I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations.
 
     This research was undertaken with the assistance of resources from the National Computational Infrastructure (NCI Australia), an NCRIS enabled capability supported by the Australian Government.
     This work was supported by ARC SRIEAS Grant SR200100005 Securing Antarctica’s Environmental Future.
@@ -116,14 +116,14 @@ The Concentration Tendency Surface is therefore a promising, physically interpre
 <!-- 
 ## plain-language-summary
 
-At the most basic level, Antarctic sea ice freezes and melts as the surface of the ocean loses and gains heat to the atmosphere. 
-Sea ice itself affects this process by forming an insulating layer that suppresses this energy exchange. 
-Growth of sea ice also requires open water to freeze, and shrinking of sea ice requires sea ice coverage to melt. 
-This predicts that when air temperature is lower than the freezing point of ocean water, sea ice concentrations are going to grow the fastest when they are low, and that at higher temperatures, sea ice retreat is maximum at about 50% sea ice concentrations. 
-Observations show that this is broadly true but that air temperature needs to be substantially lower than freezing in order for sea ice concentration to increase. 
-This simple model explains about half of the variability of sea ice concentrations and can simulate a realistic seasonal cycle of Antarctic sea ice area and its yearly fluctuations. 
-Applying the same methodology to climate models shows that this can be a useful framework for model evaluation, as errors in the relationship between sea ice concentration change and air temperature predict errors in the representation of sea ice. 
+Short summary (500 char)
+
+Half of the variability in monthly sea ice concentration change can be explained by the joint effect of near-surface air temperature and the insulation of sea ice. 
+This relationship highlights that high sea ice concentration tend to decreases even at temperatures well below freezing. 
+Climate models that simulate this relationship well tend to simulate a better sea ice seasonal cycle, suggesting that model error is due to errors in the sea ice model rather than the air temperature forcing it.
 -->
+
+
 
 
 # Introduction
@@ -242,7 +242,7 @@ I performed all analyses in this paper using the R programming language [@rcoret
 Significant processing was performed using the CDO command line operators [@schulzweida2023] via the rcdo R package [@campitelli2025b].
 Sea ice models were written in C++ for speed and integrated in R using the Rcpp package [@eddelbuettel2008].
 All graphics are made using ggplot2 [@wickham2009].
-The paper was rendered using knitr and Quarto [@xie2015; @allaire2022].
+The paper was rendered using knitr and Quarto [@xie2017; @allaire2022].
 
 # Results
 
@@ -751,26 +751,12 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 
 \FloatBarrier
 
-# References {.unnumbered}
-
-::: {#refs}
-:::
-
 \clearpage
 
-\FloatBarrier
 
-
-# Supplementary figures {.appendix}
+# Appendix A {.appendix}
 
 \appendixfigures
-
-
-::: {.cell layout-align="center"}
-::: {.cell-output-display}
-![Mean monthly standard deviation of daily temperature as a function of monthly mean temperature and monthly mean sea ice concentration.](paper_files/figure-pdf/fig13.png){#fig-t2m_sd fig-align='center'}
-:::
-:::
 
 
 
@@ -782,17 +768,10 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 
 
 
-::: {.cell layout-align="center"}
-::: {.cell-output-display}
-![Same as @fig-cmip-historical but for the period 1850--1983.](paper_files/figure-pdf/figA2.png){#fig-cmip-historical_old fig-align='center'}
-:::
-:::
-
-
 
 ::: {.cell layout-align="center"}
 ::: {.cell-output-display}
-![Same as @fig-cmip-historical but for the period 1983--2014.](paper_files/figure-pdf/figA3.png){#fig-cmip-historical_new fig-align='center'}
+![Mean monthly standard deviation of daily temperature as a function of monthly mean temperature and monthly mean sea ice concentration.](paper_files/figure-pdf/figA2.png){#fig-t2m_sd fig-align='center'}
 :::
 :::
 
@@ -800,6 +779,25 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 
 ::: {.cell layout-align="center"}
 ::: {.cell-output-display}
-![Same as @fig-cmip-historical but for the SSP585 scenario](paper_files/figure-pdf/figA4.png){#fig-cmip-ssp585 fig-align='center'}
+![Same as @fig-cmip-historical but for the period 1850--1983.](paper_files/figure-pdf/figA3.png){#fig-cmip-historical_old fig-align='center'}
 :::
 :::
+
+
+
+::: {.cell layout-align="center"}
+::: {.cell-output-display}
+![Same as @fig-cmip-historical but for the period 1983--2014.](paper_files/figure-pdf/figA4.png){#fig-cmip-historical_new fig-align='center'}
+:::
+:::
+
+
+
+::: {.cell layout-align="center"}
+::: {.cell-output-display}
+![Same as @fig-cmip-historical but for the SSP585 scenario](paper_files/figure-pdf/figA5.png){#fig-cmip-ssp585 fig-align='center'}
+:::
+:::
+
+
+
