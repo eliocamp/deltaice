@@ -1,25 +1,15 @@
 ---
 title: State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation
-pdf-engine: pdflatex
-journal:
-  name: tc
 author:
-  - given_name: Elio 
-    surname: Campitelli
-    affiliation: "1, 2"
+  - name: Elio Campitelli
+    affiliations: 
+      - name: School of Earth, Atmosphere and Environment, Monash University
+      - name: ARC Special Research Initiative for Securing Antarctica’s Environmental Future
     email: elio.campitelli@monash.edu
     corresponding: true
-            
-affiliation:
-  - code: 1
-    address: School of Earth, Atmosphere and Environment, Monash University, Kulin Nations, Clayton, Victoria, Australia. 
-  - code: 2
-    address: ARC Special Research Initiative for Securing Antarctica’s Environmental Future, Clayton, Kulin Nations, Victoria, Australia
-
+ 
 bibliography: bibliography.bib  
-running:
-  title: State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation
-  author: Campitelli et al.
+
 # This section is mandatory even if you declare that no competing interests are present.
 competinginterests: |
   # Competing interests
@@ -31,68 +21,40 @@ competinginterests: |
 ### The following commands are for the statements about the availability of data sets and/or software code corresponding to the manuscript.
 ### It is strongly recommended to make use of these sections in case data sets and/or software code have been part of your research the article is based on.
 ### Note: unless stated otherwise, software and data affiliated with the manuscript are assumed to be published under the same licence as the article (currently Creative Commons 4.0)
-availability:
-  #code: |
-  #  use this to add a statement when having only software code available
-  #data: |
-  #  use this to add a statement when having only data sets available
-  codedata: |
-    # Code/Data availability 
+availstatement: |
+  The underlying code for this study is available on GitHub: https://github.com/eliocamp/deltaice and will be made available in a Zenodo repository once accepted.
 
-    The underlying code for this study is available on GitHub: https://github.com/eliocamp/deltaice and will be made available in a Zenodo repository once accepted.
-
-    Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
-    ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview
+  Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
+  ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview
 
 authorcontribution: |
-    # Author Contributions
+  # Author Contributions
 
-    EC designed the study, performed data analysis, interpretation of the results and wrote the manuscript. 
+  EC designed the study, performed data analysis, interpretation of the results and wrote the manuscript. 
  
-acknowledgements: |
-    # Acknowledgements
+acknowledgments: |
+  I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
+  I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
 
-    I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
-    I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
+  I thank Julie Arblaster, Mathew Wheeler, Eun-Pa Lim, Phillip Reid, and Ariaan Purich for their comments and ideas in the early stages of this work. I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations.
 
-    I thank Julie Arblaster, Mathew Wheeler, Eun-Pa Lim, Phillip Reid, and Ariaan Purich for their comments and ideas in the early stages of this work. I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations.
+  This research was undertaken with the assistance of resources from the National Computational Infrastructure (NCI Australia), an NCRIS enabled capability supported by the Australian Government.
+  This work was supported by ARC SRIEAS Grant SR200100005 Securing Antarctica’s Environmental Future.
 
-    This research was undertaken with the assistance of resources from the National Computational Infrastructure (NCI Australia), an NCRIS enabled capability supported by the Australian Government.
-    This work was supported by ARC SRIEAS Grant SR200100005 Securing Antarctica’s Environmental Future.
-# appendix: |
-#   \section{Figures and tables in appendices}
-#   Regarding figures and tables in appendices, the following two options are possible depending on your general handling of figures and tables in the manuscript environment:
-#   \subsection{Option 1}
-#   If you sorted all figures and tables into the sections of the text, please also sort the appendix figures and appendix tables into the respective appendix sections.
-#   They will be correctly named automatically.
-#   \subsection{Option 2}
-#   If you put all figures after the reference list, please insert appendix tables and figures after the normal tables and figures.
-  
-#   To rename them correctly to A1, A2, etc., please add the following commands in front of them:
-#   `\appendixfigures` needs to be added in front of appendix figures
-#   `\appendixtables` needs to be added in front of appendix tables
-  
-#   Please add `\clearpage` between each table and/or figure.
 format: 
-  copernicus-pdf: 
-      keep-tex: true
-      keep-md: true
-      classoption: referee,lineno
-      fig-width: 6.5
-      fig-pos: "!htb"
-      fig-dpi: 300    
-      fig-format: png
+  pdf: 
+    template: template_ams.tex
+    keep-tex: true
+    keep-md: true
+    fig-width: 6.5
+    fig-pos: "!htb"
+    fig-dpi: 300    
+    fig-format: png
+    cite-method: natbib
+    pdf-engine: pdflatex
 
 header-includes: |
-   \usepackage[colorinlistoftodos]{todonotes}
    \usepackage[section]{placeins}
-   \usepackage[section]{placeins}
-   \AtBeginDocument{
-            \hypersetup{
-              colorlinks=false,
-              hidelinks
-            }
-   }
 
 keywords: [antarctic sea ice, model evaluation, CMIP6]
 
@@ -156,6 +118,7 @@ I first estimate the CTS empirically from observations and quantify how much of 
 I then formulate a minimal conceptual model that can help explain the main features of the observed CTS. 
 I then explore how much of the observed variability in sea ice area the CTS can reproduce by integrating it forward using observed 2-metre temperature.
 Finally, I evaluate the CTS of CMIP6 models to investigate if errors in this relationship are indicative of errors in the simulated sea ice.
+
 
 ```{r include=FALSE}
 #| label: setup
@@ -754,6 +717,8 @@ The result is that at low sea ice coverage, air temperature just below -2°C is 
 At about 50% sea ice concentrations, $dC/dt$ is negative even at temperatures well below the freezing point of ocean water.
 This effect is defined by the black line in @fig-empirical-cts b that marks the equilibrium air temperature at which $dC/dt=0$ as a function of sea ice concentrations. 
 
+
+
 ## A conceptual model of the Concentration Tendency Surface
 
 ```{r}
@@ -872,6 +837,7 @@ The monthly mean effect of air temperature is not equal to the effect of monthly
 I simulate the effect of sub-monthly variations by running @eq-model `r stochastic_samples` times for each monthly mean 2-metre temperature and monthly mean sea ice concentration value including random perturbations to temperature from a normal distribution with mean zero and standard deviation taken from observations (@@fig-t2m_sd) and computing the mean response. 
 @fig-theory b shows that addition of these random sub-monthly temperature fluctuations approximate the empirical balance temperature very well. 
 This shows that the dependence of the balance temperature with sea ice concentration can be accounted for as an emergent property of non-constant air temperature throughout each month and the non-linear nature of the response of sea ice concentration to air temperature. 
+
 
 ## Forward integration of the Concentration Tendency Surface
 
@@ -1553,10 +1519,8 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 
 \clearpage
 
-
-# Appendix A {.appendix}
-
-\appendixfigures
+\appendix
+\appendixtitle{Supplementary Figures}
 
 
 ```{r}
@@ -1698,3 +1662,8 @@ plot_daice_monthly2 +
   ) +
   facet_wrap(~model, ncol = 4)
 ```
+
+
+\FloatBarrier
+
+\clearpage
