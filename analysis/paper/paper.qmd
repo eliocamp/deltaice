@@ -43,6 +43,7 @@ availability:
 
     Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
     ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview
+    CMIP6 model output is available via the Earth System Grid Federation (ESGF) at https://esgf-node.ornl.gov/.
 
 authorcontribution: |
     # Author Contributions
@@ -169,7 +170,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   cache = TRUE,
-  cache.extra = 41
+  cache.extra = 40
 )
 
 library(metR)
