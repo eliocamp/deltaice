@@ -39,10 +39,11 @@ availability:
   codedata: |
     # Code/Data availability 
 
-    The underlying code for this study is available on GitHub: https://github.com/eliocamp/deltaice and will be made available in a Zenodo repository once accepted.
+    The underlying code for this study is available on this Zenodo deposition: https://zenodo.org/records/24573139 [@campitelli2026b].
 
     Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
     ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview
+    CMIP6 model output is available via the Earth System Grid Federation (ESGF) at https://esgf-node.ornl.gov/.
 
 authorcontribution: |
     # Author Contributions
