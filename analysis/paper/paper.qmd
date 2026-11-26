@@ -1,15 +1,25 @@
 ---
 title: State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation
+pdf-engine: pdflatex
+journal:
+  name: tc
 author:
-  - name: Elio Campitelli
-    affiliations: 
-      - name: School of Earth, Atmosphere and Environment, Monash University
-      - name: ARC Special Research Initiative for Securing Antarctica’s Environmental Future
+  - given_name: Elio 
+    surname: Campitelli
+    affiliation: "1, 2"
     email: elio.campitelli@monash.edu
     corresponding: true
- 
-bibliography: bibliography.bib  
+            
+affiliation:
+  - code: 1
+    address: School of Earth, Atmosphere and Environment, Monash University, Kulin Nations, Clayton, Victoria, Australia. 
+  - code: 2
+    address: ARC Special Research Initiative for Securing Antarctica’s Environmental Future, Clayton, Kulin Nations, Victoria, Australia
 
+bibliography: bibliography.bib  
+running:
+  title: State-Dependent Response of Antarctic Sea Ice Concentration to Air Temperature and Its Application to Climate Model Evaluation
+  author: Campitelli et al.
 # This section is mandatory even if you declare that no competing interests are present.
 competinginterests: |
   # Competing interests
@@ -21,40 +31,68 @@ competinginterests: |
 ### The following commands are for the statements about the availability of data sets and/or software code corresponding to the manuscript.
 ### It is strongly recommended to make use of these sections in case data sets and/or software code have been part of your research the article is based on.
 ### Note: unless stated otherwise, software and data affiliated with the manuscript are assumed to be published under the same licence as the article (currently Creative Commons 4.0)
-availstatement: |
-  The underlying code for this study is available on GitHub: https://github.com/eliocamp/deltaice and will be made available in a Zenodo repository once accepted.
+availability:
+  #code: |
+  #  use this to add a statement when having only software code available
+  #data: |
+  #  use this to add a statement when having only data sets available
+  codedata: |
+    # Code/Data availability 
 
-  Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
-  ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview
+    The underlying code for this study is available on GitHub: https://github.com/eliocamp/deltaice and will be made available in a Zenodo repository once accepted.
+
+    Sea ice data available via the CoastWatch ERDDAP: https://coastwatch.pfeg.noaa.gov/erddap/griddap/nsidcG02202v6sh1day.html.
+    ERA5 data is available via Copernicus Climate Data Store: https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview
 
 authorcontribution: |
-  # Author Contributions
+    # Author Contributions
 
-  EC designed the study, performed data analysis, interpretation of the results and wrote the manuscript. 
+    EC designed the study, performed data analysis, interpretation of the results and wrote the manuscript. 
  
-acknowledgments: |
-  I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
-  I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
+acknowledgements: |
+    # Acknowledgements
 
-  I thank Julie Arblaster, Mathew Wheeler, Eun-Pa Lim, Phillip Reid, and Ariaan Purich for their comments and ideas in the early stages of this work. I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations.
+    I acknowledge the World Climate Research Programme, which, through its Working Group on Coupled Modelling, coordinated and promoted CMIP6.
+    I thank the climate modeling groups for producing and making available their model output, the Earth System Grid Federation (ESGF) for archiving the data and providing access, and the multiple funding agencies who support CMIP6 and ESGF.
 
-  This research was undertaken with the assistance of resources from the National Computational Infrastructure (NCI Australia), an NCRIS enabled capability supported by the Australian Government.
-  This work was supported by ARC SRIEAS Grant SR200100005 Securing Antarctica’s Environmental Future.
+    I thank Julie Arblaster, Mathew Wheeler, Eun-Pa Lim, Phillip Reid, and Ariaan Purich for their comments and ideas in the early stages of this work. I thank Caroline Holmes for proposing analysing stochastic submonthly fluctuations.
 
+    This research was undertaken with the assistance of resources from the National Computational Infrastructure (NCI Australia), an NCRIS enabled capability supported by the Australian Government.
+    This work was supported by ARC SRIEAS Grant SR200100005 Securing Antarctica’s Environmental Future.
+# appendix: |
+#   \section{Figures and tables in appendices}
+#   Regarding figures and tables in appendices, the following two options are possible depending on your general handling of figures and tables in the manuscript environment:
+#   \subsection{Option 1}
+#   If you sorted all figures and tables into the sections of the text, please also sort the appendix figures and appendix tables into the respective appendix sections.
+#   They will be correctly named automatically.
+#   \subsection{Option 2}
+#   If you put all figures after the reference list, please insert appendix tables and figures after the normal tables and figures.
+  
+#   To rename them correctly to A1, A2, etc., please add the following commands in front of them:
+#   `\appendixfigures` needs to be added in front of appendix figures
+#   `\appendixtables` needs to be added in front of appendix tables
+  
+#   Please add `\clearpage` between each table and/or figure.
 format: 
-  pdf: 
-    template: template_ams.tex
-    keep-tex: true
-    keep-md: true
-    fig-width: 6.5
-    fig-pos: "!htb"
-    fig-dpi: 300    
-    fig-format: png
-    cite-method: natbib
-    pdf-engine: pdflatex
+  copernicus-pdf: 
+      keep-tex: true
+      keep-md: true
+      classoption: referee,lineno
+      fig-width: 6.5
+      fig-pos: "!htb"
+      fig-dpi: 300    
+      fig-format: png
 
 header-includes: |
+   \usepackage[colorinlistoftodos]{todonotes}
    \usepackage[section]{placeins}
+   \usepackage[section]{placeins}
+   \AtBeginDocument{
+            \hypersetup{
+              colorlinks=false,
+              hidelinks
+            }
+   }
 
 keywords: [antarctic sea ice, model evaluation, CMIP6]
 
@@ -74,9 +112,8 @@ To separate errors in how models represent sea ice from errors in their atmosphe
 The CTS estimated from ERA5 and satellite observations explains about half of the variance in monthly concentration tendency. At high temperatures, concentration loss is smallest at both high and low concentrations, and at low temperatures growth is greatest at low concentrations, as expected from the insulating effect of sea ice and the bounded nature of concentration.
 At high concentrations sea ice coverage decreases on average even when monthly mean air temperatures are well below freezing, which can be explained by the non-linear effect of daily temperatures. 
 Forward integration of the estimated CTS reproduces a realistic seasonal cycle and interannual variability, including the decline in sea ice area after 2015.
-In CMIP6 models, CTS errors explain more than half of the variance in errors of the seasonal cycle of sea ice area, so the CTS is a physically interpretable diagnostic that helps to separate errors in sea ice response from errors in atmospheric forcing.
-
-
+In CMIP6 models, CTS errors explain more than half of the variance in errors of the seasonal cycle of sea ice area.
+Therefore, the CTS is a physically interpretable diagnostic that is simple to compute in observations and model output, and that by evaluating processes rather than output, it can separate errors in sea ice response from errors in atmospheric forcing.
 
 <!-- 
 ## plain-language-summary
@@ -834,7 +871,7 @@ However, a key insight is that even when mean monthly temperature is below $T_b$
 At high sea ice concentrations, daily temperatures above freezing melt more sea ice than daily temperatures below freezing can freeze, leading to a net decrease in sea ice concentrations. 
 The monthly mean effect of air temperature is not equal to the effect of monthly mean air temperature. 
 
-I simulate the effect of sub-monthly variations by running @eq-model `r stochastic_samples` times for each monthly mean 2-metre temperature and monthly mean sea ice concentration value including random perturbations to temperature from a normal distribution with mean zero and standard deviation taken from observations (@@fig-t2m_sd) and computing the mean response. 
+I simulate the effect of sub-monthly variations by running @eq-model `r stochastic_samples` times for each monthly mean 2-metre temperature and monthly mean sea ice concentration value including random perturbations to temperature from a normal distribution with mean zero and mean monthly standard deviation of daily 2-metre temperature taken from observations and computing the mean response.
 @fig-theory b shows that addition of these random sub-monthly temperature fluctuations approximate the empirical balance temperature very well. 
 This shows that the dependence of the balance temperature with sea ice concentration can be accounted for as an emergent property of non-constant air temperature throughout each month and the non-linear nature of the response of sea ice concentration to air temperature. 
 
@@ -1045,8 +1082,8 @@ lonlat_lines <- with_args(
 ```{r}
 #| label: fig-bias
 #| fig-cap: February and September sea ice concentration bias for simulations using forward integration of the observed CTS (panel a), @eq-model (panel b) and ACCESS-S2 (panel c).
-#| fig-width: 4.5
-#| fig-height: 7
+#| fig-width: 6
+#| fig-height: 8
 sims |>
   _[, .(file = cdo_ymonmean(file)[]), by = model] |>
   _[, base := file[model == "daice"]] |>
@@ -1152,8 +1189,8 @@ cors <- sims |>
 ```{r}
 #| label: fig-spatial-cor
 #| fig-cap: Correlation between simulated and observed monthly mean sea ice concentration in February and September for simulations using forward integration of the observed CTS (panel a), @eq-model (panel b) and ACCESS-S2 (panel c).
-#| fig-width: 4.5
-#| fig-height: 7
+#| fig-width: 6
+#| fig-height: 8
 
 cors |>
   _[month %in% c(2, 9)] |>
@@ -1163,7 +1200,7 @@ cors |>
   with_args(
     list(
       aes(z = estimate),
-      breaks = AnchorBreaks(exclude = 0, binwidth = 0.1)(c(-1, 1))
+      breaks = AnchorBreaks(exclude = 0, binwidth = 0.2)(c(-1, 1))
     ),
     list(
       geom_contour_fill(aes(z = estimate, fill = ..level..))
@@ -1188,8 +1225,8 @@ This is likely related to the low variance of sea ice concentrations in that reg
 ```{r}
 #| label: fig-sd
 #| fig-cap: February and September interannual monthly standard deviation of monthly mean sea ice concentration for observations (panel a) and simulations using forward integration of the observed CTS (panel b), @eq-model (panel c) and ACCESS-S2 (panel d).
-#| fig-width: 4.5
-#| fig-height: 7
+#| fig-width: 6
+#| fig-height: 8
 
 sims |>
   _[,
@@ -1286,8 +1323,8 @@ cmip_grid_split[, model := model_order(model)]
 ```{r}
 #| label: fig-cmip-historical
 #| fig-cap: Same as @fig-empirical-cts b but for historical CMIP6 simulations in the period 1850--2014. The purple line marks the zero line from observations for comparison. Models ordered by ascending root mean square error compared with observations. Regions with fewer than 100 observations masked in gray. 
-#| fig-width: 5
-#| fig-height: 7
+#| fig-width: 6
+#| fig-height: 8
 plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
 plot_daice_monthly2@scales <- plot_daice_monthly2@scales$clone()
 
@@ -1498,12 +1535,12 @@ Comparing a CTS integration with the results of an ocean model forced with presc
 Some of the biases reproduced by the CTS equation are comparable to the biases in the ACCESS-S2 coupled model.
 This suggests that, in the coupled model, they arise from issues in the processes omitted in the CTS.
 Comparing CTS between models and observations allows us to evaluate the model's sea ice response to forcing.
-It also enables evaluation of the model's variability without requiring the timing of the variability to match with observations.
+It also enables evaluation of the model's sea ice concentartion variability without requiring the timing of this variability to match with observations.
 CMIP6 model errors are well correlated with CTS errors, suggesting that they arise primarily due to inaccurate sea ice response and not due to inaccurate atmospheric conditions.
 Surprisingly, although most models have less ice than observations, about half of the models have a positive CTS bias. 
-This group of models has the lowest sea ice bias, suggesting that errors in sea ice thermodynamics might be compensating for errors in the air temperature forcing, thus simulating a less biased sea ice area but for the wrong reasons. 
-However, this only applies to the seasonal cycle and not necessarily to trends.
-Further study should look at the potential utility of the CTS framework for constraining future projections.
+This group of models has the lowest sea ice bias, suggesting that errors in sea ice thermodynamics might be compensating for errors in the air temperature forcing. 
+This highlights that analysing model CTS has potential in finding cases in which model tuning has improved simulated output but at the expense of degraded processes representation. 
+Further study should look at the potential utility of the CTS framework in explaining model trends and constraining future projections.
 
 While this estimation of the CTS was shown to be useful, there are several potential modifications to better represent and isolate the thermodynamic effects from other sources of variability.
 In this work I estimated sea ice concentration tendency by a simple difference between months, but this conflates freezing and melting with contributions from sea ice advection and divergence.
@@ -1519,8 +1556,11 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 
 \clearpage
 
-\appendix
-\appendixtitle{Supplementary Figures}
+
+# Appendix A {.appendix}
+
+\appendixfigures
+
 
 
 ```{r}
@@ -1574,8 +1614,8 @@ t2m_grid |>
 ```{r}
 #| label: fig-cmip-historical_old
 #| fig-cap: Same as @fig-cmip-historical but for the period 1850--1983.
-#| fig-width: 5
-#| fig-height: 7
+#| fig-width: 6
+#| fig-height: 8
 plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
 plot_daice_monthly2@scales <- plot_daice_monthly2@scales$clone()
 
@@ -1605,8 +1645,8 @@ plot_daice_monthly2 +
 ```{r}
 #| label: fig-cmip-historical_new
 #| fig-cap: Same as @fig-cmip-historical but for the period 1983--2014.
-#| fig-width: 5
-#| fig-height: 7
+#| fig-width: 6
+#| fig-height: 8
 plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
 plot_daice_monthly2@scales <- plot_daice_monthly2@scales$clone()
 
@@ -1636,8 +1676,8 @@ plot_daice_monthly2 +
 ```{r}
 #| label: fig-cmip-ssp585
 #| fig-cap: Same as @fig-cmip-historical but for the SSP585 scenario
-#| fig-width: 5
-#| fig-height: 7
+#| fig-width: 6
+#| fig-height: 8
 plot_daice_monthly2 <- ggplot2:::plot_clone(plot_daice_monthly)
 plot_daice_monthly2@scales <- plot_daice_monthly2@scales$clone()
 
