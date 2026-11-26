@@ -226,9 +226,10 @@ of daily temperatures. Forward integration of the estimated CTS
 reproduces a realistic seasonal cycle and interannual variability,
 including the decline in sea ice area after 2015. In CMIP6 models, CTS
 errors explain more than half of the variance in errors of the seasonal
-cycle of sea ice area, so the CTS is a physically interpretable
-diagnostic that helps to separate errors in sea ice response from errors
-in atmospheric forcing.
+cycle of sea ice area. Therefore, the CTS is a physically interpretable
+diagnostic that is simple to compute in observations and model output,
+and that by evaluating processes rather than output, it can separate
+errors in sea ice response from errors in atmospheric forcing.
 \end{abstract}
 
 
@@ -551,8 +552,8 @@ I simulate the effect of sub-monthly variations by running
 Equation~\ref{eq-model} \ensuremath{10^{4}} times for each monthly mean
 2-metre temperature and monthly mean sea ice concentration value
 including random perturbations to temperature from a normal distribution
-with mean zero and standard deviation taken from observations
-(Fig.~\ref{fig-t2m_sd}) and computing the mean response.
+with mean zero and mean monthly standard deviation of daily 2-metre
+temperature taken from observations and computing the mean response.
 Figure~\ref{fig-theory} b shows that addition of these random
 sub-monthly temperature fluctuations approximate the empirical balance
 temperature very well. This shows that the dependence of the balance
@@ -880,18 +881,19 @@ biases in the ACCESS-S2 coupled model. This suggests that, in the
 coupled model, they arise from issues in the processes omitted in the
 CTS. Comparing CTS between models and observations allows us to evaluate
 the model's sea ice response to forcing. It also enables evaluation of
-the model's variability without requiring the timing of the variability
-to match with observations. CMIP6 model errors are well correlated with
-CTS errors, suggesting that they arise primarily due to inaccurate sea
-ice response and not due to inaccurate atmospheric conditions.
-Surprisingly, although most models have less ice than observations,
-about half of the models have a positive CTS bias. This group of models
-has the lowest sea ice bias, suggesting that errors in sea ice
-thermodynamics might be compensating for errors in the air temperature
-forcing, thus simulating a less biased sea ice area but for the wrong
-reasons. However, this only applies to the seasonal cycle and not
-necessarily to trends. Further study should look at the potential
-utility of the CTS framework for constraining future projections.
+the model's sea ice concentartion variability without requiring the
+timing of this variability to match with observations. CMIP6 model
+errors are well correlated with CTS errors, suggesting that they arise
+primarily due to inaccurate sea ice response and not due to inaccurate
+atmospheric conditions. Surprisingly, although most models have less ice
+than observations, about half of the models have a positive CTS bias.
+This group of models has the lowest sea ice bias, suggesting that errors
+in sea ice thermodynamics might be compensating for errors in the air
+temperature forcing. This highlights that analysing model CTS has
+potential in finding cases in which model tuning has improved simulated
+output but at the expense of degraded processes representation. Further
+study should look at the potential utility of the CTS framework in
+explaining model trends and constraining future projections.
 
 While this estimation of the CTS was shown to be useful, there are
 several potential modifications to better represent and isolate the
@@ -991,6 +993,10 @@ Figure~\ref{fig-cmip-historical} but for the period 1983--2014.}
 but for the SSP585 scenario}
 
 \end{figure}%
+
+\FloatBarrier
+
+\clearpage
 
 
 

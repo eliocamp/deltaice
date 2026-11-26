@@ -112,9 +112,8 @@ To separate errors in how models represent sea ice from errors in their atmosphe
 The CTS estimated from ERA5 and satellite observations explains about half of the variance in monthly concentration tendency. At high temperatures, concentration loss is smallest at both high and low concentrations, and at low temperatures growth is greatest at low concentrations, as expected from the insulating effect of sea ice and the bounded nature of concentration.
 At high concentrations sea ice coverage decreases on average even when monthly mean air temperatures are well below freezing, which can be explained by the non-linear effect of daily temperatures. 
 Forward integration of the estimated CTS reproduces a realistic seasonal cycle and interannual variability, including the decline in sea ice area after 2015.
-In CMIP6 models, CTS errors explain more than half of the variance in errors of the seasonal cycle of sea ice area, so the CTS is a physically interpretable diagnostic that helps to separate errors in sea ice response from errors in atmospheric forcing.
-
-
+In CMIP6 models, CTS errors explain more than half of the variance in errors of the seasonal cycle of sea ice area.
+Therefore, the CTS is a physically interpretable diagnostic that is simple to compute in observations and model output, and that by evaluating processes rather than output, it can separate errors in sea ice response from errors in atmospheric forcing.
 
 <!-- 
 ## plain-language-summary
@@ -156,6 +155,7 @@ I first estimate the CTS empirically from observations and quantify how much of 
 I then formulate a minimal conceptual model that can help explain the main features of the observed CTS. 
 I then explore how much of the observed variability in sea ice area the CTS can reproduce by integrating it forward using observed 2-metre temperature.
 Finally, I evaluate the CTS of CMIP6 models to investigate if errors in this relationship are indicative of errors in the simulated sea ice.
+
 
 
 
@@ -331,6 +331,8 @@ The result is that at low sea ice coverage, air temperature just below -2°C is 
 At about 50% sea ice concentrations, $dC/dt$ is negative even at temperatures well below the freezing point of ocean water.
 This effect is defined by the black line in @fig-empirical-cts b that marks the equilibrium air temperature at which $dC/dt=0$ as a function of sea ice concentrations. 
 
+
+
 ## A conceptual model of the Concentration Tendency Surface
 
 
@@ -405,9 +407,10 @@ However, a key insight is that even when mean monthly temperature is below $T_b$
 At high sea ice concentrations, daily temperatures above freezing melt more sea ice than daily temperatures below freezing can freeze, leading to a net decrease in sea ice concentrations. 
 The monthly mean effect of air temperature is not equal to the effect of monthly mean air temperature. 
 
-I simulate the effect of sub-monthly variations by running @eq-model \ensuremath{10^{4}} times for each monthly mean 2-metre temperature and monthly mean sea ice concentration value including random perturbations to temperature from a normal distribution with mean zero and standard deviation taken from observations (@@fig-t2m_sd) and computing the mean response. 
+I simulate the effect of sub-monthly variations by running @eq-model \ensuremath{10^{4}} times for each monthly mean 2-metre temperature and monthly mean sea ice concentration value including random perturbations to temperature from a normal distribution with mean zero and mean monthly standard deviation of daily 2-metre temperature taken from observations and computing the mean response.
 @fig-theory b shows that addition of these random sub-monthly temperature fluctuations approximate the empirical balance temperature very well. 
 This shows that the dependence of the balance temperature with sea ice concentration can be accounted for as an emergent property of non-constant air temperature throughout each month and the non-linear nature of the response of sea ice concentration to air temperature. 
+
 
 ## Forward integration of the Concentration Tendency Surface
 
@@ -641,12 +644,12 @@ Comparing a CTS integration with the results of an ocean model forced with presc
 Some of the biases reproduced by the CTS equation are comparable to the biases in the ACCESS-S2 coupled model.
 This suggests that, in the coupled model, they arise from issues in the processes omitted in the CTS.
 Comparing CTS between models and observations allows us to evaluate the model's sea ice response to forcing.
-It also enables evaluation of the model's variability without requiring the timing of the variability to match with observations.
+It also enables evaluation of the model's sea ice concentartion variability without requiring the timing of this variability to match with observations.
 CMIP6 model errors are well correlated with CTS errors, suggesting that they arise primarily due to inaccurate sea ice response and not due to inaccurate atmospheric conditions.
 Surprisingly, although most models have less ice than observations, about half of the models have a positive CTS bias. 
-This group of models has the lowest sea ice bias, suggesting that errors in sea ice thermodynamics might be compensating for errors in the air temperature forcing, thus simulating a less biased sea ice area but for the wrong reasons. 
-However, this only applies to the seasonal cycle and not necessarily to trends.
-Further study should look at the potential utility of the CTS framework for constraining future projections.
+This group of models has the lowest sea ice bias, suggesting that errors in sea ice thermodynamics might be compensating for errors in the air temperature forcing. 
+This highlights that analysing model CTS has potential in finding cases in which model tuning has improved simulated output but at the expense of degraded processes representation. 
+Further study should look at the potential utility of the CTS framework in explaining model trends and constraining future projections.
 
 While this estimation of the CTS was shown to be useful, there are several potential modifications to better represent and isolate the thermodynamic effects from other sources of variability.
 In this work I estimated sea ice concentration tendency by a simple difference between months, but this conflates freezing and melting with contributions from sea ice advection and divergence.
@@ -666,6 +669,7 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 # Appendix A {.appendix}
 
 \appendixfigures
+
 
 
 
@@ -710,3 +714,9 @@ Further refinements that include the effect of sea ice albedo on air and ocean t
 ![Same as @fig-cmip-historical but for the SSP585 scenario](paper_files/figure-pdf/figA3.png){#fig-cmip-ssp585 fig-align='center'}
 :::
 :::
+
+
+
+\FloatBarrier
+
+\clearpage
